@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  entra-id-secrets-notification:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: entra-id-secrets-notification
+    restart: unless-stopped
+
+    # Environment variables - use .env file or override here
+    env_file:
+      - .env
+
+    environment:
+      # Azure/Entra ID Configuration (required)
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+
+      # Notification Thresholds (days)
+      - CRITICAL_THRESHOLD_DAYS=${CRITICAL_THRESHOLD_DAYS:-7}
+      - WARNING_THRESHOLD_DAYS=${WARNING_THRESHOLD_DAYS:-30}
+      - INFO_THRESHOLD_DAYS=${INFO_THRESHOLD_DAYS:-90}
+
+      # Run Mode: 'once' or 'scheduled'
+      - RUN_MODE=${RUN_MODE:-scheduled}
+      # Cron schedule (default: daily at 8 AM UTC)
+      - CRON_SCHEDULE=${CRON_SCHEDULE:-0 8 * * *}
+
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Dry run mode (set to 'true' to test without sending notifications)
+      - DRY_RUN=${DRY_RUN:-false}
+
+      # Email Notification (SMTP)
+      - SMTP_ENABLED=${SMTP_ENABLED:-false}
+      - SMTP_SERVER=${SMTP_SERVER:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_TO=${SMTP_TO:-}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-true}
+
+      # Microsoft Teams Notification
+      - TEAMS_ENABLED=${TEAMS_ENABLED:-false}
+      - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL:-}
+
+      # Slack Notification
+      - SLACK_ENABLED=${SLACK_ENABLED:-false}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+
+      # Generic Webhook Notification
+      - WEBHOOK_ENABLED=${WEBHOOK_ENABLED:-false}
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
