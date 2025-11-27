@@ -10,6 +10,7 @@ Built using **Domain-Driven Design (DDD)** and **Hexagonal Architecture** (Ports
 - **Multiple Notification Channels**: Email (SMTP), Microsoft Teams, Slack, Generic Webhook
 - **Configurable Thresholds**: Critical, Warning, and Info levels
 - **Flexible Scheduling**: Run once or on a cron schedule
+- **REST API**: Optional API for health checks, reports, and on-demand checks (no credential details exposed)
 - **Clean Architecture**: DDD with hexagonal architecture for maintainability
 - **Type Safety**: Full type hints with Python 3.12+ features
 - **Async/Await**: Non-blocking I/O for better performance
@@ -45,6 +46,9 @@ src/
 │
 ├── infrastructure/            # Infrastructure layer (adapters)
 │   ├── adapters/
+│   │   ├── api/               # REST API adapter (FastAPI)
+│   │   │   ├── app.py
+│   │   │   └── models.py
 │   │   ├── entra_id/          # Entra ID adapter (implements CredentialRepository)
 │   │   │   ├── graph_client.py
 │   │   │   └── repository.py
@@ -166,6 +170,75 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 WEBHOOK_ENABLED=true
 WEBHOOK_URL=https://your-endpoint.com/notify
 ```
+
+### REST API (Optional)
+
+Enable the REST API for health checks, summary reports, and on-demand credential checks.
+
+> **Security Note**: The API does NOT expose credential details - only statistics and summaries.
+
+```env
+API_ENABLED=true
+API_HOST=0.0.0.0
+API_PORT=8080
+```
+
+#### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check - returns service status |
+| `GET` | `/api/v1/report` | Get latest report summary (no credential details) |
+| `POST` | `/api/v1/check` | Trigger on-demand credential check |
+
+#### Example: Health Check
+```bash
+curl http://localhost:8080/health
+```
+```json
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2025-01-15T08:00:00Z"
+}
+```
+
+#### Example: Get Report
+```bash
+curl http://localhost:8080/api/v1/report
+```
+```json
+{
+  "generated_at": "2025-01-15T08:00:00Z",
+  "notification_level": "warning",
+  "summary": "5 credentials requiring attention: 1 expired, 2 critical, 2 warning",
+  "statistics": {
+    "total_applications": 3,
+    "total_credentials": 5,
+    "expired_count": 1,
+    "critical_count": 2,
+    "warning_count": 2,
+    "healthy_count": 0
+  },
+  "thresholds": {
+    "critical_days": 7,
+    "warning_days": 30,
+    "info_days": 90
+  },
+  "requires_notification": true
+}
+```
+
+#### Example: Trigger Check
+```bash
+curl -X POST http://localhost:8080/api/v1/check
+```
+
+#### OpenAPI Documentation
+
+When API is enabled, interactive documentation is available at:
+- Swagger UI: `http://localhost:8080/docs`
+- ReDoc: `http://localhost:8080/redoc`
 
 ## Development
 

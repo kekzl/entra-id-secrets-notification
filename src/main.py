@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -38,6 +37,9 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+# Application version
+__version__ = "1.0.0"
 
 
 class ApplicationContainer:
@@ -86,7 +88,7 @@ class Application:
     """
     Main application orchestrator.
 
-    Handles run modes (single execution vs scheduled) and lifecycle.
+    Handles run modes (single execution, scheduled, or API) and lifecycle.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -126,6 +128,32 @@ class Application:
             logger.info("Running scheduled check...")
             await self.run_once()
 
+    def run_api(self) -> None:
+        """Run in API server mode."""
+        import uvicorn
+
+        from .infrastructure.adapters.api import create_app
+
+        logger.info(
+            "Starting API server on %s:%d",
+            self._settings.api_host,
+            self._settings.api_port,
+        )
+
+        # Create FastAPI app with check function
+        app = create_app(
+            check_func=self.run_once,
+            version=__version__,
+        )
+
+        # Run uvicorn server
+        uvicorn.run(
+            app,
+            host=self._settings.api_host,
+            port=self._settings.api_port,
+            log_level=self._settings.log_level.lower(),
+        )
+
     async def run(self) -> int:
         """
         Run the application based on configured mode.
@@ -133,6 +161,11 @@ class Application:
         Returns:
             Exit code (0 for success, 1 for failure).
         """
+        # API mode takes precedence if enabled
+        if self._settings.api_enabled:
+            self.run_api()
+            return 0
+
         match self._settings.run_mode.lower():
             case "once":
                 logger.info("Running in single-execution mode")
@@ -144,7 +177,10 @@ class Application:
                 return 0  # Never reached in scheduled mode
 
             case _:
-                logger.error("Invalid RUN_MODE: %s (use 'once' or 'scheduled')", self._settings.run_mode)
+                logger.error(
+                    "Invalid RUN_MODE: %s (use 'once', 'scheduled', or set API_ENABLED=true)",
+                    self._settings.run_mode,
+                )
                 return 1
 
 

@@ -69,6 +69,11 @@ class Settings:
     webhook_enabled: bool = field(default_factory=lambda: _env_bool("WEBHOOK_ENABLED"))
     webhook_url: str = field(default_factory=lambda: _env_str("WEBHOOK_URL"))
 
+    # API settings
+    api_enabled: bool = field(default_factory=lambda: _env_bool("API_ENABLED"))
+    api_host: str = field(default_factory=lambda: _env_str("API_HOST", "0.0.0.0"))  # noqa: S104
+    api_port: int = field(default_factory=lambda: _env_int("API_PORT", 8080))
+
     def validate(self) -> None:
         """Validate required settings."""
         missing: list[str] = []

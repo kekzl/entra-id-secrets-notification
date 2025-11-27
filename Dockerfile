@@ -49,6 +49,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1
 
+# Expose API port (configurable via API_PORT env var)
+EXPOSE 8080
+
 # Health check - verify the application can be imported
 HEALTHCHECK --interval=5m --timeout=30s --start-period=10s --retries=3 \
     CMD python -c "from src.main import main; print('OK')" || exit 1
