@@ -2,28 +2,34 @@
 """
 Entra ID Secrets Notification System
 
-Main entry point for the application that monitors Azure AD/Entra ID
-application secrets and certificates for expiration and sends notifications.
+Composition root and application entry point.
+Wires together all layers following hexagonal architecture principles.
 """
 
+from __future__ import annotations
+
+import asyncio
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from croniter import croniter
 
-from .config import AppConfig, load_config
-from .graph_client import GraphClient, SecretInfo
-from .notifiers import (
-    BaseNotifier,
-    EmailNotifier,
-    NotificationLevel,
-    SlackNotifier,
-    TeamsNotifier,
-    WebhookNotifier,
+from .application.ports import NotificationSender
+from .application.use_cases import CheckExpiringCredentials
+from .infrastructure.adapters import (
+    EmailNotificationSender,
+    EntraIdCredentialRepository,
+    SlackNotificationSender,
+    TeamsNotificationSender,
+    WebhookNotificationSender,
 )
-from .notifiers.base import NotificationPayload
+from .infrastructure.config import Settings, load_settings
+
+if TYPE_CHECKING:
+    from .application.use_cases.check_expiring_credentials import CheckResult
 
 # Configure logging
 logging.basicConfig(
@@ -34,230 +40,140 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class SecretsNotificationService:
-    """Main service class for secrets notification."""
+class ApplicationContainer:
+    """
+    Dependency injection container.
 
-    def __init__(self, config: AppConfig):
-        """Initialize the service with configuration."""
-        self.config = config
-        self.graph_client = GraphClient(config.azure)
-        self.notifiers: list[BaseNotifier] = self._initialize_notifiers()
+    Responsible for creating and wiring all application components.
+    """
 
-    def _initialize_notifiers(self) -> list[BaseNotifier]:
-        """Initialize all configured notifiers."""
-        notifiers = []
+    def __init__(self, settings: Settings) -> None:
+        """Initialize container with settings."""
+        self._settings = settings
 
-        email = EmailNotifier(self.config.notification)
-        if email.is_configured():
-            notifiers.append(email)
-            logger.info("Email notifier enabled")
+    def create_credential_repository(self) -> EntraIdCredentialRepository:
+        """Create the credential repository adapter."""
+        return EntraIdCredentialRepository(self._settings.graph_config)
 
-        teams = TeamsNotifier(self.config.notification)
-        if teams.is_configured():
-            notifiers.append(teams)
-            logger.info("Teams notifier enabled")
-
-        slack = SlackNotifier(self.config.notification)
-        if slack.is_configured():
-            notifiers.append(slack)
-            logger.info("Slack notifier enabled")
-
-        webhook = WebhookNotifier(self.config.notification)
-        if webhook.is_configured():
-            notifiers.append(webhook)
-            logger.info("Webhook notifier enabled")
-
-        return notifiers
-
-    def check_secrets(self) -> list[SecretInfo]:
-        """Check all secrets and return those that need attention."""
-        all_secrets = self.graph_client.get_expiring_secrets()
-
-        # Filter secrets based on thresholds
-        relevant_secrets = [
-            s
-            for s in all_secrets
-            if s.days_until_expiry <= self.config.notification.info_threshold_days
+    def create_notification_senders(self) -> list[NotificationSender]:
+        """Create all configured notification sender adapters."""
+        senders: list[NotificationSender] = [
+            EmailNotificationSender(self._settings.email_config),
+            TeamsNotificationSender(self._settings.teams_config),
+            SlackNotificationSender(self._settings.slack_config),
+            WebhookNotificationSender(self._settings.webhook_config),
         ]
 
-        return sorted(relevant_secrets, key=lambda s: s.days_until_expiry)
-
-    def categorize_secrets(
-        self, secrets: list[SecretInfo]
-    ) -> tuple[list[SecretInfo], list[SecretInfo], list[SecretInfo], list[SecretInfo]]:
-        """
-        Categorize secrets by severity.
-
-        Returns:
-            Tuple of (expired, critical, warning, info) lists
-        """
-        expired = []
-        critical = []
-        warning = []
-        info = []
-
-        critical_days = self.config.notification.critical_threshold_days
-        warning_days = self.config.notification.warning_threshold_days
-
-        for secret in secrets:
-            if secret.is_expired:
-                expired.append(secret)
-            elif secret.days_until_expiry <= critical_days:
-                critical.append(secret)
-            elif secret.days_until_expiry <= warning_days:
-                warning.append(secret)
-            else:
-                info.append(secret)
-
-        return expired, critical, warning, info
-
-    def build_notification_payload(self, secrets: list[SecretInfo]) -> NotificationPayload:
-        """Build a notification payload from the secrets."""
-        expired, critical, warning, info = self.categorize_secrets(secrets)
-
-        # Determine overall level
-        if expired or critical:
-            level = NotificationLevel.CRITICAL
-        elif warning:
-            level = NotificationLevel.WARNING
-        else:
-            level = NotificationLevel.INFO
-
-        # Count unique applications
-        unique_apps = set(s.app_id for s in secrets)
-
-        # Build summary
-        parts = []
-        if expired:
-            parts.append(f"{len(expired)} expired")
-        if critical:
-            parts.append(f"{len(critical)} critical")
-        if warning:
-            parts.append(f"{len(warning)} warning")
-        if info:
-            parts.append(f"{len(info)} info")
-
-        summary = f"{len(secrets)} secrets/certificates requiring attention: " + ", ".join(parts)
-
-        return NotificationPayload(
-            level=level,
-            title="Entra ID Secrets Expiration Alert",
-            summary=summary,
-            secrets=secrets,
-            total_apps_affected=len(unique_apps),
-            expired_count=len(expired),
-            critical_count=len(critical),
-            warning_count=len(warning),
-            info_count=len(info),
+        configured = [s for s in senders if s.is_configured()]
+        logger.info(
+            "Configured notification senders: %s",
+            [s.__class__.__name__ for s in configured] or "None",
         )
 
-    def send_notifications(self, payload: NotificationPayload) -> bool:
-        """Send notifications through all configured notifiers."""
-        if self.config.dry_run:
-            logger.info("DRY RUN: Would send notification:")
-            logger.info(f"  Level: {payload.level.value}")
-            logger.info(f"  Summary: {payload.summary}")
-            logger.info(f"  Apps affected: {payload.total_apps_affected}")
-            logger.info(f"  Expired: {payload.expired_count}")
-            logger.info(f"  Critical: {payload.critical_count}")
-            logger.info(f"  Warning: {payload.warning_count}")
-            logger.info(f"  Info: {payload.info_count}")
-            return True
+        return senders
 
-        if not self.notifiers:
-            logger.warning("No notifiers configured, skipping notification")
-            return False
+    def create_check_use_case(self) -> CheckExpiringCredentials:
+        """Create the main use case with all dependencies."""
+        return CheckExpiringCredentials(
+            credential_repository=self.create_credential_repository(),
+            notification_senders=self.create_notification_senders(),
+            thresholds=self._settings.thresholds,
+            dry_run=self._settings.dry_run,
+        )
 
-        success = True
-        for notifier in self.notifiers:
-            try:
-                if not notifier.send(payload):
-                    success = False
-            except Exception as e:
-                logger.error(f"Error sending notification via {notifier.__class__.__name__}: {e}")
-                success = False
 
-        return success
+class Application:
+    """
+    Main application orchestrator.
 
-    def run_check(self) -> bool:
-        """Run a single check and send notifications if needed."""
-        logger.info("Starting secrets expiration check...")
+    Handles run modes (single execution vs scheduled) and lifecycle.
+    """
 
-        try:
-            secrets = self.check_secrets()
+    def __init__(self, settings: Settings) -> None:
+        """Initialize application with settings."""
+        self._settings = settings
+        self._container = ApplicationContainer(settings)
 
-            if not secrets:
-                logger.info("No secrets found requiring attention")
-                return True
+    async def run_once(self) -> CheckResult:
+        """Execute a single credential check."""
+        use_case = self._container.create_check_use_case()
+        return await use_case.execute()
 
-            logger.info(f"Found {len(secrets)} secrets requiring attention")
-
-            payload = self.build_notification_payload(secrets)
-            return self.send_notifications(payload)
-
-        except Exception as e:
-            logger.error(f"Error during secrets check: {e}")
-            return False
-
-    def run(self) -> None:
-        """Run the service based on configured mode."""
-        if self.config.schedule.run_mode == "once":
-            logger.info("Running in single-execution mode")
-            success = self.run_check()
-            sys.exit(0 if success else 1)
-        else:
-            logger.info(
-                f"Running in scheduled mode with cron: {self.config.schedule.cron_schedule}"
-            )
-            self._run_scheduled()
-
-    def _run_scheduled(self) -> None:
-        """Run the service in scheduled mode."""
-        cron = croniter(self.config.schedule.cron_schedule, datetime.now(timezone.utc))
+    async def run_scheduled(self) -> None:
+        """Run in scheduled mode with cron expression."""
+        logger.info("Starting scheduled mode with cron: %s", self._settings.cron_schedule)
 
         # Run immediately on startup
         logger.info("Running initial check on startup...")
-        self.run_check()
+        await self.run_once()
+
+        cron = croniter(self._settings.cron_schedule, datetime.now(UTC))
 
         while True:
             next_run = cron.get_next(datetime)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Handle timezone-naive datetime from croniter
             if next_run.tzinfo is None:
-                next_run = next_run.replace(tzinfo=timezone.utc)
+                next_run = next_run.replace(tzinfo=UTC)
 
             sleep_seconds = (next_run - now).total_seconds()
 
             if sleep_seconds > 0:
-                logger.info(f"Next check scheduled for {next_run.isoformat()}")
-                time.sleep(sleep_seconds)
+                logger.info("Next check scheduled for %s", next_run.isoformat())
+                await asyncio.sleep(sleep_seconds)
 
             logger.info("Running scheduled check...")
-            self.run_check()
+            await self.run_once()
+
+    async def run(self) -> int:
+        """
+        Run the application based on configured mode.
+
+        Returns:
+            Exit code (0 for success, 1 for failure).
+        """
+        match self._settings.run_mode.lower():
+            case "once":
+                logger.info("Running in single-execution mode")
+                result = await self.run_once()
+                return 0 if result.success else 1
+
+            case "scheduled":
+                await self.run_scheduled()
+                return 0  # Never reached in scheduled mode
+
+            case _:
+                logger.error("Invalid RUN_MODE: %s (use 'once' or 'scheduled')", self._settings.run_mode)
+                return 1
+
+
+async def async_main() -> int:
+    """Async entry point."""
+    try:
+        logger.info("Entra ID Secrets Notification System starting...")
+
+        settings = load_settings()
+        logging.getLogger().setLevel(settings.log_level.upper())
+
+        app = Application(settings)
+        return await app.run()
+
+    except ValueError as e:
+        logger.error("Configuration error: %s", e)
+        return 1
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+        return 0
+    except Exception:
+        logger.exception("Unexpected error")
+        return 1
 
 
 def main() -> None:
     """Main entry point."""
-    try:
-        logger.info("Entra ID Secrets Notification System starting...")
-        config = load_config()
-
-        # Set log level from config
-        logging.getLogger().setLevel(config.log_level.upper())
-
-        service = SecretsNotificationService(config)
-        service.run()
-
-    except ValueError as e:
-        logger.error(f"Configuration error: {e}")
-        sys.exit(1)
-    except KeyboardInterrupt:
-        logger.info("Shutting down...")
-        sys.exit(0)
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        sys.exit(1)
+    exit_code = asyncio.run(async_main())
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

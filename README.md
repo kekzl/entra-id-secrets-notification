@@ -2,262 +2,299 @@
 
 A Docker-based service that monitors Microsoft Entra ID (Azure AD) application secrets and certificates for expiration and sends notifications through multiple channels.
 
+Built using **Domain-Driven Design (DDD)** and **Hexagonal Architecture** (Ports and Adapters) patterns, following Python 2025 best practices.
+
 ## Features
 
-- **Automatic Monitoring**: Scans all app registrations in your Entra ID tenant for expiring secrets and certificates
-- **Multiple Notification Channels**:
-  - Email (SMTP)
-  - Microsoft Teams (Incoming Webhook)
-  - Slack (Incoming Webhook)
-  - Generic HTTP Webhook (JSON payload)
-- **Configurable Thresholds**: Set custom warning levels for critical, warning, and info notifications
+- **Automatic Monitoring**: Scans all app registrations in your Entra ID tenant
+- **Multiple Notification Channels**: Email (SMTP), Microsoft Teams, Slack, Generic Webhook
+- **Configurable Thresholds**: Critical, Warning, and Info levels
 - **Flexible Scheduling**: Run once or on a cron schedule
-- **Docker-Ready**: Easy deployment with Docker and Docker Compose
-- **Secure**: Runs as non-root user with minimal permissions
+- **Clean Architecture**: DDD with hexagonal architecture for maintainability
+- **Type Safety**: Full type hints with Python 3.12+ features
+- **Async/Await**: Non-blocking I/O for better performance
+- **Docker-Ready**: Production-ready containerization
+
+## Architecture
+
+This project follows **Hexagonal Architecture** (Ports and Adapters) with **Domain-Driven Design** principles:
+
+```
+src/
+├── domain/                    # Core business logic (no external dependencies)
+│   ├── entities/              # Domain entities with identity
+│   │   ├── credential.py      # Credential entity
+│   │   ├── application.py     # Application entity
+│   │   └── expiration_report.py  # Aggregate root
+│   ├── value_objects/         # Immutable value objects
+│   │   ├── credential_type.py
+│   │   ├── expiration_status.py
+│   │   ├── notification_level.py
+│   │   └── thresholds.py
+│   ├── services/              # Domain services
+│   │   └── expiration_analyzer.py
+│   └── exceptions.py          # Domain exceptions
+│
+├── application/               # Application layer (use cases)
+│   ├── ports/                 # Interfaces (driven/secondary ports)
+│   │   ├── credential_repository.py  # Port for data retrieval
+│   │   └── notification_sender.py    # Port for notifications
+│   ├── use_cases/             # Application services
+│   │   └── check_expiring_credentials.py
+│   └── exceptions.py          # Application exceptions
+│
+├── infrastructure/            # Infrastructure layer (adapters)
+│   ├── adapters/
+│   │   ├── entra_id/          # Entra ID adapter (implements CredentialRepository)
+│   │   │   ├── graph_client.py
+│   │   │   └── repository.py
+│   │   └── notifications/     # Notification adapters (implement NotificationSender)
+│   │       ├── email.py
+│   │       ├── teams.py
+│   │       ├── slack.py
+│   │       └── webhook.py
+│   └── config/                # Configuration loading
+│       └── settings.py
+│
+└── main.py                    # Composition root (dependency injection)
+```
+
+### Key Concepts
+
+- **Domain Layer**: Pure business logic with no external dependencies. Contains entities, value objects, and domain services.
+- **Application Layer**: Orchestrates use cases using domain objects. Defines ports (interfaces) for external systems.
+- **Infrastructure Layer**: Implements adapters that fulfill the ports. Contains all external system integrations.
+- **Composition Root**: Wires everything together using dependency injection.
 
 ## Prerequisites
 
-1. **Microsoft Entra ID App Registration** with the following:
-   - API Permission: `Microsoft Graph > Application.Read.All` (Application permission)
-   - Admin consent granted for the permission
+1. **Microsoft Entra ID App Registration** with:
+   - API Permission: `Microsoft Graph > Application.Read.All` (Application)
+   - Admin consent granted
    - Client secret created
 
-2. **Docker** and **Docker Compose** installed
+2. **Python 3.12+** (for local development)
+
+3. **Docker** and **Docker Compose** (for containerized deployment)
 
 ## Quick Start
 
-### 1. Clone the Repository
+### 1. Clone and Configure
 
 ```bash
 git clone <repository-url>
 cd entra-id-secrets-notification
-```
-
-### 2. Configure Environment
-
-```bash
 cp .env.example .env
+# Edit .env with your Azure credentials and notification settings
 ```
 
-Edit `.env` and configure:
-- Azure credentials (required)
-- At least one notification channel
-- Threshold and schedule settings
-
-### 3. Run with Docker Compose
+### 2. Run with Docker Compose
 
 ```bash
-# Build and run in detached mode
-docker-compose up -d
+# Build and run
+docker compose up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
-# Stop the service
-docker-compose down
+# Stop
+docker compose down
 ```
 
-### 4. Run Once (Manual Check)
+### 3. Run Once (Manual Check)
 
 ```bash
 # Set RUN_MODE=once in .env, then:
-docker-compose up
+docker compose up
 ```
 
 ## Configuration
 
-### Azure/Entra ID Settings
+### Required: Azure/Entra ID
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `AZURE_TENANT_ID` | Your Entra ID tenant ID | Yes |
-| `AZURE_CLIENT_ID` | App registration client ID | Yes |
-| `AZURE_CLIENT_SECRET` | App registration client secret | Yes |
+| Variable | Description |
+|----------|-------------|
+| `AZURE_TENANT_ID` | Your Entra ID tenant ID |
+| `AZURE_CLIENT_ID` | App registration client ID |
+| `AZURE_CLIENT_SECRET` | App registration client secret |
 
-### Notification Thresholds
+### Thresholds
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CRITICAL_THRESHOLD_DAYS` | 7 | Days until expiry for critical alerts |
-| `WARNING_THRESHOLD_DAYS` | 30 | Days until expiry for warning alerts |
-| `INFO_THRESHOLD_DAYS` | 90 | Days until expiry for info alerts |
+| `CRITICAL_THRESHOLD_DAYS` | 7 | Days for critical alerts |
+| `WARNING_THRESHOLD_DAYS` | 30 | Days for warning alerts |
+| `INFO_THRESHOLD_DAYS` | 90 | Days for info alerts |
 
-### Schedule Settings
+### Schedule
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RUN_MODE` | scheduled | `once` or `scheduled` |
-| `CRON_SCHEDULE` | `0 8 * * *` | Cron expression (daily at 8 AM UTC) |
+| `CRON_SCHEDULE` | `0 8 * * *` | Cron expression |
 | `LOG_LEVEL` | INFO | DEBUG, INFO, WARNING, ERROR |
-| `DRY_RUN` | false | Test mode without sending notifications |
+| `DRY_RUN` | false | Test mode (no notifications) |
 
-### Email (SMTP) Notifications
+### Notification Channels
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SMTP_ENABLED` | false | Enable email notifications |
-| `SMTP_SERVER` | - | SMTP server hostname |
-| `SMTP_PORT` | 587 | SMTP port |
-| `SMTP_USERNAME` | - | SMTP username |
-| `SMTP_PASSWORD` | - | SMTP password |
-| `SMTP_FROM` | - | From email address |
-| `SMTP_TO` | - | To addresses (comma-separated) |
-| `SMTP_USE_TLS` | true | Use TLS encryption |
+#### Email (SMTP)
+```env
+SMTP_ENABLED=true
+SMTP_SERVER=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=user
+SMTP_PASSWORD=pass
+SMTP_FROM=noreply@example.com
+SMTP_TO=admin@example.com
+SMTP_USE_TLS=true
+```
 
-### Microsoft Teams Notifications
+#### Microsoft Teams
+```env
+TEAMS_ENABLED=true
+TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/...
+```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TEAMS_ENABLED` | false | Enable Teams notifications |
-| `TEAMS_WEBHOOK_URL` | - | Incoming webhook URL |
+#### Slack
+```env
+SLACK_ENABLED=true
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
 
-### Slack Notifications
+#### Generic Webhook
+```env
+WEBHOOK_ENABLED=true
+WEBHOOK_URL=https://your-endpoint.com/notify
+```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SLACK_ENABLED` | false | Enable Slack notifications |
-| `SLACK_WEBHOOK_URL` | - | Incoming webhook URL |
+## Development
 
-### Generic Webhook
+### Local Setup
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WEBHOOK_ENABLED` | false | Enable webhook notifications |
-| `WEBHOOK_URL` | - | HTTP endpoint URL |
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # or: .venv\Scripts\activate on Windows
 
-## Setting Up Entra ID App Registration
+# Install with dev dependencies
+pip install -e ".[dev]"
 
-1. Go to [Azure Portal](https://portal.azure.com) > **Microsoft Entra ID** > **App registrations**
+# Run linting
+ruff check src/
+ruff format src/
 
-2. Click **New registration**:
-   - Name: `Entra ID Secrets Monitor`
-   - Supported account types: Single tenant
-   - Click **Register**
+# Run type checking
+mypy src/
 
-3. Note the **Application (client) ID** and **Directory (tenant) ID**
+# Run tests
+pytest
 
-4. Go to **Certificates & secrets** > **Client secrets** > **New client secret**:
-   - Add a description
-   - Set expiration
-   - Click **Add**
-   - Copy the **Value** immediately
+# Run the application
+python -m src.main
+```
 
-5. Go to **API permissions** > **Add a permission**:
-   - Select **Microsoft Graph**
-   - Select **Application permissions**
-   - Search for and add `Application.Read.All`
-   - Click **Add permissions**
+### Code Quality Tools
 
-6. Click **Grant admin consent** (requires admin privileges)
+- **Ruff**: Fast Python linter and formatter
+- **MyPy**: Static type checking with strict mode
+- **Pytest**: Testing framework with async support
 
-## Setting Up Notification Channels
+### Adding New Notification Channels
 
-### Microsoft Teams
+1. Create a new config dataclass in `infrastructure/adapters/notifications/`
+2. Implement `BaseNotificationSender` with `send()` and `is_configured()` methods
+3. Register in `ApplicationContainer.create_notification_senders()`
+4. Add environment variables to settings
 
-1. In Teams, go to the channel where you want notifications
-2. Click `•••` > **Connectors** > **Incoming Webhook**
-3. Configure the webhook name and icon
-4. Copy the webhook URL to `TEAMS_WEBHOOK_URL`
+Example:
+```python
+@dataclass(frozen=True, slots=True)
+class DiscordConfig:
+    enabled: bool = False
+    webhook_url: str = ""
 
-### Slack
+class DiscordNotificationSender(BaseNotificationSender):
+    async def send(self, report: ExpirationReport) -> bool:
+        # Implementation
+        ...
 
-1. Go to [Slack API](https://api.slack.com/apps)
-2. Create a new app or select existing
-3. Go to **Incoming Webhooks** > Enable
-4. Add a new webhook to your workspace
-5. Copy the webhook URL to `SLACK_WEBHOOK_URL`
+    def is_configured(self) -> bool:
+        return self._config.enabled and bool(self._config.webhook_url)
+```
 
 ## Webhook JSON Payload
 
-For generic webhook integrations, the service sends this JSON structure:
+For generic webhook integrations:
 
 ```json
 {
   "event_type": "entra_id_secrets_alert",
-  "timestamp": "2024-01-15T08:00:00+00:00",
+  "timestamp": "2025-01-15T08:00:00+00:00",
   "level": "critical",
-  "title": "Entra ID Secrets Expiration Alert",
-  "summary": "5 secrets/certificates requiring attention: 1 expired, 2 critical, 2 warning",
+  "summary": "5 credentials requiring attention: 1 expired, 2 critical, 2 warning",
   "statistics": {
-    "total_apps_affected": 3,
+    "total_applications_affected": 3,
+    "total_credentials": 5,
     "expired_count": 1,
     "critical_count": 2,
     "warning_count": 2,
-    "info_count": 0
+    "healthy_count": 0
   },
-  "secrets": [
+  "credentials": [
     {
-      "app_id": "app-guid",
-      "app_name": "My Application",
-      "secret_id": "secret-guid",
-      "secret_type": "password",
+      "application_id": "app-guid",
+      "application_name": "My Application",
+      "credential_id": "credential-guid",
+      "credential_type": "password",
       "display_name": "API Key",
-      "expiry_date": "2024-01-20T00:00:00+00:00",
+      "expiry_date": "2025-01-20T00:00:00+00:00",
       "days_until_expiry": 5,
-      "is_expired": false
+      "is_expired": false,
+      "status": "critical"
     }
   ]
 }
 ```
 
-## Development
+## Setting Up Entra ID
 
-### Running Locally (without Docker)
+1. Go to [Azure Portal](https://portal.azure.com) > **Microsoft Entra ID** > **App registrations**
 
-```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
+2. Click **New registration**:
+   - Name: `Entra ID Secrets Monitor`
+   - Account types: Single tenant
+   - Click **Register**
 
-# Install dependencies
-pip install -r requirements.txt
+3. Note the **Application (client) ID** and **Directory (tenant) ID**
 
-# Set environment variables
-export AZURE_TENANT_ID=...
-export AZURE_CLIENT_ID=...
-export AZURE_CLIENT_SECRET=...
-export DRY_RUN=true
+4. **Certificates & secrets** > **Client secrets** > **New client secret**
 
-# Run
-python -m src.main
-```
-
-### Building Docker Image
-
-```bash
-docker build -t entra-id-secrets-notification .
-```
+5. **API permissions** > **Add a permission**:
+   - Microsoft Graph > Application permissions
+   - Add `Application.Read.All`
+   - Click **Grant admin consent**
 
 ## Troubleshooting
 
-### Common Issues
+### Authentication Errors
+- Verify Azure credentials
+- Check client secret hasn't expired
+- Confirm admin consent was granted
 
-1. **Authentication Errors**
-   - Verify `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`
-   - Ensure the client secret hasn't expired
-   - Check that admin consent was granted
+### No Notifications
+- Enable at least one notification channel
+- Check `DRY_RUN=false`
+- Verify webhook URLs
 
-2. **No Notifications Sent**
-   - Enable at least one notification channel
-   - Check `DRY_RUN` is set to `false`
-   - Verify webhook URLs are correct
-   - Check container logs for errors
+### Permission Errors
+- Ensure `Application.Read.All` permission
+- Verify admin consent
 
-3. **Permission Denied Errors**
-   - Ensure `Application.Read.All` permission is granted
-   - Verify admin consent was given
-
-### Viewing Logs
-
+### View Logs
 ```bash
-# Docker Compose
-docker-compose logs -f
-
-# Docker
-docker logs -f entra-id-secrets-notification
+docker compose logs -f
 ```
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file.
