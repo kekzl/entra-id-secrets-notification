@@ -65,8 +65,12 @@ FROM production AS development
 
 USER root
 
+# Copy project files needed for dev install
+COPY --chown=appuser:appuser pyproject.toml README.md ./
+COPY --chown=appuser:appuser tests/ ./tests/
+
 # Install development dependencies
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir pytest pytest-asyncio pytest-cov
 
 USER appuser
 

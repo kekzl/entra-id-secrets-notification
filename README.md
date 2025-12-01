@@ -7,7 +7,7 @@ Built using **Domain-Driven Design (DDD)** and **Hexagonal Architecture** (Ports
 ## Features
 
 - **Automatic Monitoring**: Scans all app registrations in your Entra ID tenant
-- **Multiple Notification Channels**: Email (SMTP), Microsoft Teams, Slack, Generic Webhook
+- **Multiple Notification Channels**: Email (SMTP), Microsoft Graph Email, Microsoft Teams, Slack, Generic Webhook
 - **Configurable Thresholds**: Critical, Warning, and Info levels
 - **Flexible Scheduling**: Run once or on a cron schedule
 - **REST API**: Optional API for health checks, reports, and on-demand checks (no credential details exposed)
@@ -53,7 +53,8 @@ src/
 │   │   │   ├── graph_client.py
 │   │   │   └── repository.py
 │   │   └── notifications/     # Notification adapters (implement NotificationSender)
-│   │       ├── email.py
+│   │       ├── email.py       # SMTP email
+│   │       ├── graph_email.py # Microsoft Graph API email
 │   │       ├── teams.py
 │   │       ├── slack.py
 │   │       └── webhook.py
@@ -74,6 +75,7 @@ src/
 
 1. **Microsoft Entra ID App Registration** with:
    - API Permission: `Microsoft Graph > Application.Read.All` (Application)
+   - API Permission: `Microsoft Graph > Mail.Send` (Application) - only if using Graph Email
    - Admin consent granted
    - Client secret created
 
@@ -169,6 +171,23 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```env
 WEBHOOK_ENABLED=true
 WEBHOOK_URL=https://your-endpoint.com/notify
+```
+
+#### Microsoft Graph Email
+Send email via Microsoft Graph API. Useful when SMTP is not available or you want to use Microsoft 365 mailboxes.
+
+> **Note**: Requires `Mail.Send` application permission with admin consent. If Graph-specific credentials are not set, it uses the main Azure credentials.
+
+```env
+GRAPH_EMAIL_ENABLED=true
+GRAPH_EMAIL_FROM=notifications@yourdomain.com
+GRAPH_EMAIL_TO=admin@example.com,security@example.com
+# Optional: Use different credentials than the main app
+GRAPH_EMAIL_TENANT_ID=
+GRAPH_EMAIL_CLIENT_ID=
+GRAPH_EMAIL_CLIENT_SECRET=
+# Save sent emails to Sent Items folder
+GRAPH_EMAIL_SAVE_TO_SENT=false
 ```
 
 ### REST API (Optional)
@@ -344,7 +363,8 @@ For generic webhook integrations:
 
 5. **API permissions** > **Add a permission**:
    - Microsoft Graph > Application permissions
-   - Add `Application.Read.All`
+   - Add `Application.Read.All` (required for monitoring)
+   - Add `Mail.Send` (only if using Microsoft Graph Email notifications)
    - Click **Grant admin consent**
 
 ## Troubleshooting

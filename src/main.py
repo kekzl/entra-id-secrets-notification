@@ -21,6 +21,7 @@ from .application.use_cases import CheckExpiringCredentials
 from .infrastructure.adapters import (
     EmailNotificationSender,
     EntraIdCredentialRepository,
+    GraphEmailNotificationSender,
     SlackNotificationSender,
     TeamsNotificationSender,
     WebhookNotificationSender,
@@ -61,6 +62,7 @@ class ApplicationContainer:
         """Create all configured notification sender adapters."""
         senders: list[NotificationSender] = [
             EmailNotificationSender(self._settings.email_config),
+            GraphEmailNotificationSender(self._settings.graph_email_config),
             TeamsNotificationSender(self._settings.teams_config),
             SlackNotificationSender(self._settings.slack_config),
             WebhookNotificationSender(self._settings.webhook_config),

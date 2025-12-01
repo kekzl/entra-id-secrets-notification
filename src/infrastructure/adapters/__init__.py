@@ -3,6 +3,7 @@
 from .entra_id import EntraIdCredentialRepository
 from .notifications import (
     EmailNotificationSender,
+    GraphEmailNotificationSender,
     SlackNotificationSender,
     TeamsNotificationSender,
     WebhookNotificationSender,
@@ -11,6 +12,7 @@ from .notifications import (
 __all__ = [
     "EntraIdCredentialRepository",
     "EmailNotificationSender",
+    "GraphEmailNotificationSender",
     "SlackNotificationSender",
     "TeamsNotificationSender",
     "WebhookNotificationSender",

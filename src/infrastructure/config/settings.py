@@ -7,6 +7,7 @@ from functools import cached_property
 from ...domain.value_objects import ExpirationThresholds
 from ..adapters.entra_id.graph_client import GraphClientConfig
 from ..adapters.notifications.email import EmailConfig
+from ..adapters.notifications.graph_email import GraphEmailConfig
 from ..adapters.notifications.slack import SlackConfig
 from ..adapters.notifications.teams import TeamsConfig
 from ..adapters.notifications.webhook import WebhookConfig
@@ -68,6 +69,15 @@ class Settings:
     # Webhook settings
     webhook_enabled: bool = field(default_factory=lambda: _env_bool("WEBHOOK_ENABLED"))
     webhook_url: str = field(default_factory=lambda: _env_str("WEBHOOK_URL"))
+
+    # Graph email settings (MS Graph API)
+    graph_email_enabled: bool = field(default_factory=lambda: _env_bool("GRAPH_EMAIL_ENABLED"))
+    graph_email_tenant_id: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_TENANT_ID"))
+    graph_email_client_id: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_CLIENT_ID"))
+    graph_email_client_secret: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_CLIENT_SECRET"))
+    graph_email_from: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_FROM"))
+    graph_email_to: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_TO"))
+    graph_email_save_to_sent: bool = field(default_factory=lambda: _env_bool("GRAPH_EMAIL_SAVE_TO_SENT"))
 
     # API settings
     api_enabled: bool = field(default_factory=lambda: _env_bool("API_ENABLED"))
@@ -143,6 +153,24 @@ class Settings:
         return WebhookConfig(
             enabled=self.webhook_enabled,
             url=self.webhook_url,
+        )
+
+    @cached_property
+    def graph_email_config(self) -> GraphEmailConfig:
+        """Get Graph email configuration."""
+        # Use main Azure credentials if Graph-specific ones not provided
+        tenant_id = self.graph_email_tenant_id or self.azure_tenant_id
+        client_id = self.graph_email_client_id or self.azure_client_id
+        client_secret = self.graph_email_client_secret or self.azure_client_secret
+
+        return GraphEmailConfig(
+            enabled=self.graph_email_enabled,
+            tenant_id=tenant_id,
+            client_id=client_id,
+            client_secret=client_secret,
+            from_address=self.graph_email_from,
+            to_addresses=self.graph_email_to,
+            save_to_sent_items=self.graph_email_save_to_sent,
         )
 
 
