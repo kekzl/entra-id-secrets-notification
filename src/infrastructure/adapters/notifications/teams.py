@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -58,7 +58,7 @@ class TeamsNotificationSender(BaseNotificationSender):
             self._logger.exception("Failed to send Teams notification")
             return False
 
-    def _build_adaptive_card(self, report: ExpirationReport) -> dict:
+    def _build_adaptive_card(self, report: ExpirationReport) -> dict[str, Any]:
         """Build an Adaptive Card for Teams."""
         emoji = report.notification_level.emoji
 
@@ -69,7 +69,7 @@ class TeamsNotificationSender(BaseNotificationSender):
             {"title": "Warning", "value": str(report.warning_count)},
         ]
 
-        body_items: list[dict] = [
+        body_items: list[dict[str, Any]] = [
             {
                 "type": "Container",
                 "style": "emphasis",
@@ -128,9 +128,9 @@ class TeamsNotificationSender(BaseNotificationSender):
         credentials: list[Credential],
         title: str,
         _color: str,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Build Adaptive Card section for a credential source."""
-        items: list[dict] = [
+        items: list[dict[str, Any]] = [
             {
                 "type": "TextBlock",
                 "text": f"**{title}**",

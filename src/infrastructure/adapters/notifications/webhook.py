@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -59,7 +59,7 @@ class WebhookNotificationSender(BaseNotificationSender):
             self._logger.exception("Failed to send webhook notification")
             return False
 
-    def _build_payload(self, report: ExpirationReport) -> dict:
+    def _build_payload(self, report: ExpirationReport) -> dict[str, Any]:
         """Build the JSON payload for the webhook."""
         app_creds = report.get_credentials_by_source(CredentialSource.APP_REGISTRATION)
         sp_creds = report.get_credentials_by_source(CredentialSource.SERVICE_PRINCIPAL)
@@ -95,7 +95,7 @@ class WebhookNotificationSender(BaseNotificationSender):
 
     def _format_credentials(
         self, report: ExpirationReport, credentials: list[Credential]
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Format credentials list for JSON payload."""
         return [
             {

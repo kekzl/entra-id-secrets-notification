@@ -1,7 +1,10 @@
 """Entra ID credential repository implementation."""
 
+from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from ....application.exceptions import CredentialRepositoryError
 from ....domain.entities import Credential
@@ -148,7 +151,7 @@ class EntraIdCredentialRepository:
 
     def _map_credential(
         self,
-        raw: dict,
+        raw: dict[str, Any],
         credential_type: CredentialType,
         app_id: str,
         app_name: str,

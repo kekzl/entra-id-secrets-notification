@@ -36,6 +36,12 @@ dev = [
     "ruff>=0.8.0",
     "pre-commit>=4.0.0",
 ]
+types = [
+    "mypy>=1.14.0",
+    "httpx",
+    "fastapi",
+    "pydantic",
+]
 
 [project.scripts]
 entra-secrets-notify = "src.main:main"
@@ -95,15 +101,8 @@ known-first-party = ["src"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-warn_return_any = true
-warn_unused_ignores = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_configs = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-cast", "truthy-bool"]
 show_error_codes = true
 show_column_numbers = true
 
@@ -111,8 +110,13 @@ show_column_numbers = true
 module = [
     "msal",
     "croniter",
+    "uvicorn",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.adapters.api.*"
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

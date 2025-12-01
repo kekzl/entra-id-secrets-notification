@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -58,12 +58,12 @@ class SlackNotificationSender(BaseNotificationSender):
             self._logger.exception("Failed to send Slack notification")
             return False
 
-    def _build_slack_message(self, report: ExpirationReport) -> dict:
+    def _build_slack_message(self, report: ExpirationReport) -> dict[str, Any]:
         """Build a Slack message using Block Kit."""
         emoji = report.notification_level.emoji
         color = report.notification_level.color_hex
 
-        blocks: list[dict] = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {

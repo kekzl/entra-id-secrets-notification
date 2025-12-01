@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import httpx
 import msal
@@ -73,7 +73,7 @@ class GraphClient:
 
         return self._access_token
 
-    async def get_applications(self) -> list[dict]:
+    async def get_applications(self) -> list[dict[str, Any]]:
         """
         Retrieve all application registrations.
 
@@ -85,7 +85,7 @@ class GraphClient:
         logger.info("Found %d application registrations", len(applications))
         return applications
 
-    async def get_service_principals(self) -> list[dict]:
+    async def get_service_principals(self) -> list[dict[str, Any]]:
         """
         Retrieve all service principals.
 
@@ -97,7 +97,7 @@ class GraphClient:
         logger.info("Found %d service principals", len(service_principals))
         return service_principals
 
-    async def _get_all_pages(self, endpoint: str) -> list[dict]:
+    async def _get_all_pages(self, endpoint: str) -> list[dict[str, Any]]:
         """
         Retrieve all pages from a paginated Graph API endpoint.
 
@@ -107,7 +107,7 @@ class GraphClient:
         Returns:
             Combined list of all results across pages.
         """
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         url: str | None = endpoint
 
         async with httpx.AsyncClient(timeout=self._config.timeout) as client:

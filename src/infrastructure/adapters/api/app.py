@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from .models import (
@@ -174,7 +174,10 @@ def create_app(
             ) from e
 
     @app.exception_handler(Exception)
-    async def global_exception_handler(request, exc: Exception) -> JSONResponse:  # noqa: ARG001
+    async def global_exception_handler(
+        request: Request,  # noqa: ARG001
+        exc: Exception,
+    ) -> JSONResponse:
         """Handle uncaught exceptions."""
         logger.exception("Unhandled exception in API")
         return JSONResponse(
