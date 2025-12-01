@@ -113,37 +113,43 @@ class EmailNotificationSender(BaseNotificationSender):
         # App Registration section
         app_creds = report.get_credentials_by_source(CredentialSource.APP_REGISTRATION)
         if app_creds:
-            lines.extend([
-                "APP REGISTRATIONS",
-                "-" * 40,
-                report.get_source_summary(CredentialSource.APP_REGISTRATION),
-                "",
-                self.format_credential_list(
-                    sorted(app_creds, key=lambda c: c.days_until_expiry),
-                    max_items=25,
-                ),
-                "",
-            ])
+            lines.extend(
+                [
+                    "APP REGISTRATIONS",
+                    "-" * 40,
+                    report.get_source_summary(CredentialSource.APP_REGISTRATION),
+                    "",
+                    self.format_credential_list(
+                        sorted(app_creds, key=lambda c: c.days_until_expiry),
+                        max_items=25,
+                    ),
+                    "",
+                ]
+            )
 
         # Service Principal section
         sp_creds = report.get_credentials_by_source(CredentialSource.SERVICE_PRINCIPAL)
         if sp_creds:
-            lines.extend([
-                "SERVICE PRINCIPALS",
-                "-" * 40,
-                report.get_source_summary(CredentialSource.SERVICE_PRINCIPAL),
-                "",
-                self.format_credential_list(
-                    sorted(sp_creds, key=lambda c: c.days_until_expiry),
-                    max_items=25,
-                ),
-                "",
-            ])
+            lines.extend(
+                [
+                    "SERVICE PRINCIPALS",
+                    "-" * 40,
+                    report.get_source_summary(CredentialSource.SERVICE_PRINCIPAL),
+                    "",
+                    self.format_credential_list(
+                        sorted(sp_creds, key=lambda c: c.days_until_expiry),
+                        max_items=25,
+                    ),
+                    "",
+                ]
+            )
 
-        lines.extend([
-            "-" * 40,
-            "Entra ID Secrets Notification System",
-        ])
+        lines.extend(
+            [
+                "-" * 40,
+                "Entra ID Secrets Notification System",
+            ]
+        )
         return "\n".join(lines)
 
     def _format_html_body(self, report: ExpirationReport) -> str:

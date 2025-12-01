@@ -68,11 +68,7 @@ class GraphEmailNotificationSender(BaseNotificationSender):
 
     async def _acquire_token(self) -> str:
         """Acquire access token using client credentials flow."""
-        if (
-            self._access_token
-            and self._token_expiry
-            and datetime.now(UTC) < self._token_expiry
-        ):
+        if self._access_token and self._token_expiry and datetime.now(UTC) < self._token_expiry:
             return self._access_token
 
         app = self._get_msal_app()

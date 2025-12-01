@@ -80,8 +80,7 @@ class ExpirationReport:
     def affected_applications_count(self) -> int:
         """Count of unique applications with credentials requiring attention."""
         requiring_attention = [
-            c for c in self.credentials
-            if c.get_status(self.thresholds).requires_attention
+            c for c in self.credentials if c.get_status(self.thresholds).requires_attention
         ]
         return len({c.application_id for c in requiring_attention})
 
@@ -130,7 +129,8 @@ class ExpirationReport:
     ) -> list[Credential]:
         """Get credentials filtered by source and status."""
         return [
-            c for c in self.credentials
+            c
+            for c in self.credentials
             if c.source == source and c.get_status(self.thresholds) == status
         ]
 

@@ -22,21 +22,13 @@ class ExpirationAnalyzer:
             ExpirationReport with categorized credentials.
         """
         # Filter to only credentials within the info threshold
-        relevant = [
-            c for c in credentials
-            if c.requires_notification(self._thresholds)
-        ]
+        relevant = [c for c in credentials if c.requires_notification(self._thresholds)]
 
         return ExpirationReport(
             credentials=relevant,
             thresholds=self._thresholds,
         )
 
-    def filter_requiring_attention(
-        self, credentials: list[Credential]
-    ) -> list[Credential]:
+    def filter_requiring_attention(self, credentials: list[Credential]) -> list[Credential]:
         """Filter credentials that require immediate attention."""
-        return [
-            c for c in credentials
-            if c.get_status(self._thresholds).requires_attention
-        ]
+        return [c for c in credentials if c.get_status(self._thresholds).requires_attention]

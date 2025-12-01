@@ -38,8 +38,12 @@ class Settings:
     azure_client_secret: str = field(default_factory=lambda: _env_str("AZURE_CLIENT_SECRET"))
 
     # Thresholds
-    critical_threshold_days: int = field(default_factory=lambda: _env_int("CRITICAL_THRESHOLD_DAYS", 7))
-    warning_threshold_days: int = field(default_factory=lambda: _env_int("WARNING_THRESHOLD_DAYS", 30))
+    critical_threshold_days: int = field(
+        default_factory=lambda: _env_int("CRITICAL_THRESHOLD_DAYS", 7)
+    )
+    warning_threshold_days: int = field(
+        default_factory=lambda: _env_int("WARNING_THRESHOLD_DAYS", 30)
+    )
     info_threshold_days: int = field(default_factory=lambda: _env_int("INFO_THRESHOLD_DAYS", 90))
 
     # Monitoring scope
@@ -79,10 +83,14 @@ class Settings:
     graph_email_enabled: bool = field(default_factory=lambda: _env_bool("GRAPH_EMAIL_ENABLED"))
     graph_email_tenant_id: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_TENANT_ID"))
     graph_email_client_id: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_CLIENT_ID"))
-    graph_email_client_secret: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_CLIENT_SECRET"))
+    graph_email_client_secret: str = field(
+        default_factory=lambda: _env_str("GRAPH_EMAIL_CLIENT_SECRET")
+    )
     graph_email_from: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_FROM"))
     graph_email_to: str = field(default_factory=lambda: _env_str("GRAPH_EMAIL_TO"))
-    graph_email_save_to_sent: bool = field(default_factory=lambda: _env_bool("GRAPH_EMAIL_SAVE_TO_SENT"))
+    graph_email_save_to_sent: bool = field(
+        default_factory=lambda: _env_bool("GRAPH_EMAIL_SAVE_TO_SENT")
+    )
 
     # API settings
     api_enabled: bool = field(default_factory=lambda: _env_bool("API_ENABLED"))

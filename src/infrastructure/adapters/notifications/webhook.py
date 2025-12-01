@@ -88,10 +88,14 @@ class WebhookNotificationSender(BaseNotificationSender):
                 "credentials": self._format_credentials(report, sp_creds),
             },
             # Keep legacy field for backward compatibility
-            "credentials": self._format_credentials(report, report.get_credentials_sorted_by_urgency()),
+            "credentials": self._format_credentials(
+                report, report.get_credentials_sorted_by_urgency()
+            ),
         }
 
-    def _format_credentials(self, report: ExpirationReport, credentials: list[Credential]) -> list[dict]:
+    def _format_credentials(
+        self, report: ExpirationReport, credentials: list[Credential]
+    ) -> list[dict]:
         """Format credentials list for JSON payload."""
         return [
             {

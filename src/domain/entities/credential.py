@@ -33,9 +33,7 @@ class Credential:
         """Calculate derived fields."""
         now = datetime.now(UTC)
         expiry_aware = (
-            self.expiry_date
-            if self.expiry_date.tzinfo
-            else self.expiry_date.replace(tzinfo=UTC)
+            self.expiry_date if self.expiry_date.tzinfo else self.expiry_date.replace(tzinfo=UTC)
         )
         delta = expiry_aware - now
         self._days_until_expiry = delta.days

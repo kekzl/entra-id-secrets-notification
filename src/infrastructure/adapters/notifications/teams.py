@@ -73,13 +73,15 @@ class TeamsNotificationSender(BaseNotificationSender):
             {
                 "type": "Container",
                 "style": "emphasis",
-                "items": [{
-                    "type": "TextBlock",
-                    "text": f"{emoji} Entra ID Secrets Alert",
-                    "weight": "Bolder",
-                    "size": "Large",
-                    "wrap": True,
-                }],
+                "items": [
+                    {
+                        "type": "TextBlock",
+                        "text": f"{emoji} Entra ID Secrets Alert",
+                        "weight": "Bolder",
+                        "size": "Large",
+                        "wrap": True,
+                    }
+                ],
             },
             {
                 "type": "TextBlock",
@@ -93,25 +95,31 @@ class TeamsNotificationSender(BaseNotificationSender):
         # Add App Registration section
         app_creds = report.get_credentials_by_source(CredentialSource.APP_REGISTRATION)
         if app_creds:
-            body_items.extend(self._build_source_section(report, app_creds, "App Registrations", "#0078D4"))
+            body_items.extend(
+                self._build_source_section(report, app_creds, "App Registrations", "#0078D4")
+            )
 
         # Add Service Principal section
         sp_creds = report.get_credentials_by_source(CredentialSource.SERVICE_PRINCIPAL)
         if sp_creds:
-            body_items.extend(self._build_source_section(report, sp_creds, "Service Principals", "#5C2D91"))
+            body_items.extend(
+                self._build_source_section(report, sp_creds, "Service Principals", "#5C2D91")
+            )
 
         return {
             "type": "message",
-            "attachments": [{
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "contentVersion": "1.4",
-                "content": {
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                    "type": "AdaptiveCard",
-                    "version": "1.4",
-                    "body": body_items,
-                },
-            }],
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "contentVersion": "1.4",
+                    "content": {
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "body": body_items,
+                    },
+                }
+            ],
         }
 
     def _build_source_section(
@@ -135,61 +143,79 @@ class TeamsNotificationSender(BaseNotificationSender):
         ]
 
         # Group by status
-        expired = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.EXPIRED]
-        critical = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.CRITICAL]
-        warning = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.WARNING]
+        expired = [
+            c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.EXPIRED
+        ]
+        critical = [
+            c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.CRITICAL
+        ]
+        warning = [
+            c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.WARNING
+        ]
 
         if expired:
-            items.append({
-                "type": "TextBlock",
-                "text": "🔴 **Expired:**",
-                "wrap": True,
-                "weight": "Bolder",
-            })
+            items.append(
+                {
+                    "type": "TextBlock",
+                    "text": "🔴 **Expired:**",
+                    "wrap": True,
+                    "weight": "Bolder",
+                }
+            )
             for cred in expired[:3]:
                 name = cred.display_name or str(cred.id)[:8]
-                items.append({
-                    "type": "TextBlock",
-                    "text": f"• {cred.application_name} - {cred.credential_type} '{name}' "
-                            f"[Manage]({cred.azure_portal_url})",
-                    "wrap": True,
-                    "spacing": "None",
-                })
+                items.append(
+                    {
+                        "type": "TextBlock",
+                        "text": f"• {cred.application_name} - {cred.credential_type} '{name}' "
+                        f"[Manage]({cred.azure_portal_url})",
+                        "wrap": True,
+                        "spacing": "None",
+                    }
+                )
 
         if critical:
-            items.append({
-                "type": "TextBlock",
-                "text": "🟠 **Critical (≤7 days):**",
-                "wrap": True,
-                "weight": "Bolder",
-                "spacing": "Medium",
-            })
+            items.append(
+                {
+                    "type": "TextBlock",
+                    "text": "🟠 **Critical (≤7 days):**",
+                    "wrap": True,
+                    "weight": "Bolder",
+                    "spacing": "Medium",
+                }
+            )
             for cred in critical[:3]:
                 name = cred.display_name or str(cred.id)[:8]
-                items.append({
-                    "type": "TextBlock",
-                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
-                            f"[Manage]({cred.azure_portal_url})",
-                    "wrap": True,
-                    "spacing": "None",
-                })
+                items.append(
+                    {
+                        "type": "TextBlock",
+                        "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
+                        f"[Manage]({cred.azure_portal_url})",
+                        "wrap": True,
+                        "spacing": "None",
+                    }
+                )
 
         if warning:
-            items.append({
-                "type": "TextBlock",
-                "text": "🟡 **Warning (≤30 days):**",
-                "wrap": True,
-                "weight": "Bolder",
-                "spacing": "Medium",
-            })
+            items.append(
+                {
+                    "type": "TextBlock",
+                    "text": "🟡 **Warning (≤30 days):**",
+                    "wrap": True,
+                    "weight": "Bolder",
+                    "spacing": "Medium",
+                }
+            )
             for cred in warning[:3]:
                 name = cred.display_name or str(cred.id)[:8]
-                items.append({
-                    "type": "TextBlock",
-                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
-                            f"[Manage]({cred.azure_portal_url})",
-                    "wrap": True,
-                    "spacing": "None",
-                })
+                items.append(
+                    {
+                        "type": "TextBlock",
+                        "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
+                        f"[Manage]({cred.azure_portal_url})",
+                        "wrap": True,
+                        "spacing": "None",
+                    }
+                )
 
         return items

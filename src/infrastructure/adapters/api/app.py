@@ -155,8 +155,7 @@ def create_app(
             state.last_check_at = datetime.now(UTC)
 
             msg = (
-                "Check completed successfully" if result.success
-                else "Check completed with errors"
+                "Check completed successfully" if result.success else "Check completed with errors"
             )
             return CheckResponse(
                 success=result.success,

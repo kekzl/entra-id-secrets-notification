@@ -79,7 +79,10 @@ class SlackNotificationSender(BaseNotificationSender):
             {
                 "type": "section",
                 "fields": [
-                    {"type": "mrkdwn", "text": f"*Apps Affected:*\n{report.affected_applications_count}"},
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Apps Affected:*\n{report.affected_applications_count}",
+                    },
                     {"type": "mrkdwn", "text": f"*Total:*\n{report.total_count}"},
                 ],
             },
@@ -98,37 +101,47 @@ class SlackNotificationSender(BaseNotificationSender):
         app_creds = report.get_credentials_by_source(CredentialSource.APP_REGISTRATION)
         if app_creds:
             blocks.append({"type": "divider"})
-            blocks.append({
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "*📦 APP REGISTRATIONS*"},
-            })
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": "*📦 APP REGISTRATIONS*"},
+                }
+            )
             details = self._build_source_details(report, app_creds)
             if details:
-                blocks.append({
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": details},
-                })
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": details},
+                    }
+                )
 
         # Add Service Principal section
         sp_creds = report.get_credentials_by_source(CredentialSource.SERVICE_PRINCIPAL)
         if sp_creds:
             blocks.append({"type": "divider"})
-            blocks.append({
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "*🔧 SERVICE PRINCIPALS*"},
-            })
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": "*🔧 SERVICE PRINCIPALS*"},
+                }
+            )
             details = self._build_source_details(report, sp_creds)
             if details:
-                blocks.append({
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": details},
-                })
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": details},
+                    }
+                )
 
         blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "context",
-            "elements": [{"type": "mrkdwn", "text": "Entra ID Secrets Notification System"}],
-        })
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": "Entra ID Secrets Notification System"}],
+            }
+        )
 
         return {
             "blocks": blocks,
@@ -139,9 +152,15 @@ class SlackNotificationSender(BaseNotificationSender):
         """Build details text for a specific credential source."""
         parts: list[str] = []
 
-        expired = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.EXPIRED]
-        critical = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.CRITICAL]
-        warning = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.WARNING]
+        expired = [
+            c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.EXPIRED
+        ]
+        critical = [
+            c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.CRITICAL
+        ]
+        warning = [
+            c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.WARNING
+        ]
 
         if expired:
             parts.append("*🔴 Expired:*")
