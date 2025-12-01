@@ -10,8 +10,8 @@ from .notifications import (
 )
 
 __all__ = [
-    "EntraIdCredentialRepository",
     "EmailNotificationSender",
+    "EntraIdCredentialRepository",
     "GraphEmailNotificationSender",
     "SlackNotificationSender",
     "TeamsNotificationSender",

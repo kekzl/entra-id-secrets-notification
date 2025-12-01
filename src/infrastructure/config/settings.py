@@ -42,6 +42,11 @@ class Settings:
     warning_threshold_days: int = field(default_factory=lambda: _env_int("WARNING_THRESHOLD_DAYS", 30))
     info_threshold_days: int = field(default_factory=lambda: _env_int("INFO_THRESHOLD_DAYS", 90))
 
+    # Monitoring scope
+    monitor_service_principals: bool = field(
+        default_factory=lambda: _env_bool("MONITOR_SERVICE_PRINCIPALS", default=True)
+    )
+
     # Run configuration
     run_mode: str = field(default_factory=lambda: _env_str("RUN_MODE", "once"))
     cron_schedule: str = field(default_factory=lambda: _env_str("CRON_SCHEDULE", "0 8 * * *"))

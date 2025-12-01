@@ -14,7 +14,11 @@ class ExpirationStatus(StrEnum):
     @property
     def requires_attention(self) -> bool:
         """Check if this status requires attention."""
-        return self in {ExpirationStatus.EXPIRED, ExpirationStatus.CRITICAL, ExpirationStatus.WARNING}
+        return self in {
+            ExpirationStatus.EXPIRED,
+            ExpirationStatus.CRITICAL,
+            ExpirationStatus.WARNING,
+        }
 
     def __str__(self) -> str:
         return self.value

@@ -1,11 +1,17 @@
 """Microsoft Teams notification sender."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 
-from ....domain.entities import ExpirationReport
+from ....domain.value_objects import CredentialSource, ExpirationStatus
 from .base import BaseNotificationSender
+
+if TYPE_CHECKING:
+    from ....domain.entities import Credential, ExpirationReport
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,63 +69,36 @@ class TeamsNotificationSender(BaseNotificationSender):
             {"title": "Warning", "value": str(report.warning_count)},
         ]
 
-        details_items: list[dict] = []
-
-        # Add expired credentials
-        if report.expired:
-            details_items.append({
-                "type": "TextBlock",
-                "text": "🔴 **Expired:**",
-                "wrap": True,
-                "weight": "Bolder",
-            })
-            for cred in report.expired[:5]:
-                name = cred.display_name or str(cred.id)[:8]
-                details_items.append({
+        body_items: list[dict] = [
+            {
+                "type": "Container",
+                "style": "emphasis",
+                "items": [{
                     "type": "TextBlock",
-                    "text": f"• {cred.application_name} - {cred.credential_type} '{name}' "
-                            f"[Manage]({cred.azure_portal_url})",
+                    "text": f"{emoji} Entra ID Secrets Alert",
+                    "weight": "Bolder",
+                    "size": "Large",
                     "wrap": True,
-                    "spacing": "None",
-                })
-
-        # Add critical credentials
-        if report.critical:
-            details_items.append({
+                }],
+            },
+            {
                 "type": "TextBlock",
-                "text": "🟠 **Critical (≤7 days):**",
+                "text": report.get_summary(),
                 "wrap": True,
-                "weight": "Bolder",
-                "spacing": "Medium",
-            })
-            for cred in report.critical[:5]:
-                name = cred.display_name or str(cred.id)[:8]
-                details_items.append({
-                    "type": "TextBlock",
-                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
-                            f"[Manage]({cred.azure_portal_url})",
-                    "wrap": True,
-                    "spacing": "None",
-                })
+                "size": "Medium",
+            },
+            {"type": "FactSet", "facts": facts},
+        ]
 
-        # Add warning credentials
-        if report.warning:
-            details_items.append({
-                "type": "TextBlock",
-                "text": "🟡 **Warning (≤30 days):**",
-                "wrap": True,
-                "weight": "Bolder",
-                "spacing": "Medium",
-            })
-            for cred in report.warning[:5]:
-                name = cred.display_name or str(cred.id)[:8]
-                details_items.append({
-                    "type": "TextBlock",
-                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
-                            f"[Manage]({cred.azure_portal_url})",
-                    "wrap": True,
-                    "spacing": "None",
-                })
+        # Add App Registration section
+        app_creds = report.get_credentials_by_source(CredentialSource.APP_REGISTRATION)
+        if app_creds:
+            body_items.extend(self._build_source_section(report, app_creds, "App Registrations", "#0078D4"))
+
+        # Add Service Principal section
+        sp_creds = report.get_credentials_by_source(CredentialSource.SERVICE_PRINCIPAL)
+        if sp_creds:
+            body_items.extend(self._build_source_section(report, sp_creds, "Service Principals", "#5C2D91"))
 
         return {
             "type": "message",
@@ -130,27 +109,87 @@ class TeamsNotificationSender(BaseNotificationSender):
                     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                     "type": "AdaptiveCard",
                     "version": "1.4",
-                    "body": [
-                        {
-                            "type": "Container",
-                            "style": "emphasis",
-                            "items": [{
-                                "type": "TextBlock",
-                                "text": f"{emoji} Entra ID Secrets Alert",
-                                "weight": "Bolder",
-                                "size": "Large",
-                                "wrap": True,
-                            }],
-                        },
-                        {
-                            "type": "TextBlock",
-                            "text": report.get_summary(),
-                            "wrap": True,
-                            "size": "Medium",
-                        },
-                        {"type": "FactSet", "facts": facts},
-                        {"type": "Container", "items": details_items},
-                    ],
+                    "body": body_items,
                 },
             }],
         }
+
+    def _build_source_section(
+        self,
+        report: ExpirationReport,
+        credentials: list[Credential],
+        title: str,
+        _color: str,
+    ) -> list[dict]:
+        """Build Adaptive Card section for a credential source."""
+        items: list[dict] = [
+            {
+                "type": "TextBlock",
+                "text": f"**{title}**",
+                "wrap": True,
+                "weight": "Bolder",
+                "size": "Medium",
+                "color": "Accent",
+                "spacing": "Large",
+            },
+        ]
+
+        # Group by status
+        expired = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.EXPIRED]
+        critical = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.CRITICAL]
+        warning = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.WARNING]
+
+        if expired:
+            items.append({
+                "type": "TextBlock",
+                "text": "🔴 **Expired:**",
+                "wrap": True,
+                "weight": "Bolder",
+            })
+            for cred in expired[:3]:
+                name = cred.display_name or str(cred.id)[:8]
+                items.append({
+                    "type": "TextBlock",
+                    "text": f"• {cred.application_name} - {cred.credential_type} '{name}' "
+                            f"[Manage]({cred.azure_portal_url})",
+                    "wrap": True,
+                    "spacing": "None",
+                })
+
+        if critical:
+            items.append({
+                "type": "TextBlock",
+                "text": "🟠 **Critical (≤7 days):**",
+                "wrap": True,
+                "weight": "Bolder",
+                "spacing": "Medium",
+            })
+            for cred in critical[:3]:
+                name = cred.display_name or str(cred.id)[:8]
+                items.append({
+                    "type": "TextBlock",
+                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
+                            f"[Manage]({cred.azure_portal_url})",
+                    "wrap": True,
+                    "spacing": "None",
+                })
+
+        if warning:
+            items.append({
+                "type": "TextBlock",
+                "text": "🟡 **Warning (≤30 days):**",
+                "wrap": True,
+                "weight": "Bolder",
+                "spacing": "Medium",
+            })
+            for cred in warning[:3]:
+                name = cred.display_name or str(cred.id)[:8]
+                items.append({
+                    "type": "TextBlock",
+                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
+                            f"[Manage]({cred.azure_portal_url})",
+                    "wrap": True,
+                    "spacing": "None",
+                })
+
+        return items

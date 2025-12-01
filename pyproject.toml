@@ -81,13 +81,16 @@ ignore = [
     "PLR0913",  # Too many arguments
     "PLR2004",  # Magic value used in comparison
     "S101",     # Use of assert detected
+    "PLC0415",  # Import not at top level - intentional for optional deps
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "ARG001", "PLR2004"]
+"tests/**/*.py" = ["S101", "ARG001", "PLR2004", "S106"]
+"src/infrastructure/adapters/notifications/*.py" = ["E501"]
+"src/infrastructure/config/settings.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

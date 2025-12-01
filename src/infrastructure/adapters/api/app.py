@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 
-from ....domain.entities import ExpirationReport
 from .models import (
     CheckResponse,
     ErrorResponse,
@@ -24,6 +23,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Coroutine
 
     from ....application.use_cases.check_expiring_credentials import CheckResult
+    from ....domain.entities import ExpirationReport
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def create_app(
     state = ApiState(check_func=check_func, version=version)
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         """Application lifespan handler."""
         logger.info("API server starting...")
         yield
@@ -154,9 +154,13 @@ def create_app(
             state.last_report = result.report
             state.last_check_at = datetime.now(UTC)
 
+            msg = (
+                "Check completed successfully" if result.success
+                else "Check completed with errors"
+            )
             return CheckResponse(
                 success=result.success,
-                message="Check completed successfully" if result.success else "Check completed with errors",
+                message=msg,
                 report=_report_to_response(result.report),
                 notifications_sent=result.notifications_sent,
                 notifications_failed=result.notifications_failed,

@@ -6,7 +6,8 @@ Built using **Domain-Driven Design (DDD)** and **Hexagonal Architecture** (Ports
 
 ## Features
 
-- **Automatic Monitoring**: Scans all app registrations in your Entra ID tenant
+- **Automatic Monitoring**: Scans all app registrations and service principals in your Entra ID tenant
+- **Service Principal Support**: Monitors both App Registration and Service Principal credentials with separate report sections
 - **Multiple Notification Channels**: Email (SMTP), Microsoft Graph Email, Microsoft Teams, Slack, Generic Webhook
 - **Configurable Thresholds**: Critical, Warning, and Info levels
 - **Flexible Scheduling**: Run once or on a cron schedule
@@ -28,6 +29,7 @@ src/
 │   │   ├── application.py     # Application entity
 │   │   └── expiration_report.py  # Aggregate root
 │   ├── value_objects/         # Immutable value objects
+│   │   ├── credential_source.py  # App Registration vs Service Principal
 │   │   ├── credential_type.py
 │   │   ├── expiration_status.py
 │   │   ├── notification_level.py
@@ -131,6 +133,14 @@ docker compose up
 | `CRITICAL_THRESHOLD_DAYS` | 7 | Days for critical alerts |
 | `WARNING_THRESHOLD_DAYS` | 30 | Days for warning alerts |
 | `INFO_THRESHOLD_DAYS` | 90 | Days for info alerts |
+
+### Monitoring Scope
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MONITOR_SERVICE_PRINCIPALS` | true | Also monitor Service Principal credentials |
+
+> **Note**: Service Principals are the tenant-local instances of applications. They often have their own secrets/certificates that are different from the App Registration. Both are monitored by default and shown in separate sections in notifications.
 
 ### Schedule
 

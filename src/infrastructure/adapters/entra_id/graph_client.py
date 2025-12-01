@@ -1,8 +1,11 @@
 """Microsoft Graph API client for Entra ID."""
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 
 import httpx
 import msal
@@ -27,9 +30,9 @@ class GraphClient:
     Handles authentication and paginated requests to the Graph API.
     """
 
-    GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
-    AUTHORITY_BASE = "https://login.microsoftonline.com"
-    SCOPE = ["https://graph.microsoft.com/.default"]
+    GRAPH_BASE_URL: ClassVar[str] = "https://graph.microsoft.com/v1.0"
+    AUTHORITY_BASE: ClassVar[str] = "https://login.microsoftonline.com"
+    SCOPE: ClassVar[list[str]] = ["https://graph.microsoft.com/.default"]
 
     def __init__(self, config: GraphClientConfig) -> None:
         """Initialize the Graph client."""
@@ -52,9 +55,12 @@ class GraphClient:
     async def _acquire_token(self) -> str:
         """Acquire access token using client credentials flow."""
         # Check if existing token is still valid
-        if self._access_token and self._token_expiry:
-            if datetime.now(UTC) < self._token_expiry:
-                return self._access_token
+        if (
+            self._access_token
+            and self._token_expiry
+            and datetime.now(UTC) < self._token_expiry
+        ):
+            return self._access_token
 
         app = self._get_msal_app()
         result = app.acquire_token_for_client(scopes=self.SCOPE)
@@ -82,6 +88,18 @@ class GraphClient:
         applications = await self._get_all_pages("/applications")
         logger.info("Found %d application registrations", len(applications))
         return applications
+
+    async def get_service_principals(self) -> list[dict]:
+        """
+        Retrieve all service principals.
+
+        Returns:
+            List of service principal dictionaries from Graph API.
+        """
+        logger.info("Fetching service principals from Entra ID...")
+        service_principals = await self._get_all_pages("/servicePrincipals")
+        logger.info("Found %d service principals", len(service_principals))
+        return service_principals
 
     async def _get_all_pages(self, endpoint: str) -> list[dict]:
         """

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from ....application.exceptions import CredentialRepositoryError
 from ....domain.entities import Credential
-from ....domain.value_objects import CredentialType
+from ....domain.value_objects import CredentialSource, CredentialType
 from .graph_client import GraphClient, GraphClientConfig
 
 logger = logging.getLogger(__name__)
@@ -18,56 +18,44 @@ class EntraIdCredentialRepository:
     Implements the CredentialRepository port for Entra ID.
     """
 
-    def __init__(self, config: GraphClientConfig) -> None:
+    def __init__(
+        self,
+        config: GraphClientConfig,
+        *,
+        monitor_service_principals: bool = True,
+    ) -> None:
         """
         Initialize the repository.
 
         Args:
             config: Configuration for the Graph API client.
+            monitor_service_principals: Whether to also monitor service principal credentials.
         """
         self._client = GraphClient(config)
+        self._monitor_service_principals = monitor_service_principals
 
     async def get_all_credentials(self) -> list[Credential]:
         """
-        Retrieve all credentials from Entra ID applications.
+        Retrieve all credentials from Entra ID applications and service principals.
 
         Returns:
-            List of all credentials across all applications.
+            List of all credentials across all applications and service principals.
 
         Raises:
             CredentialRepositoryError: If retrieval fails.
         """
         try:
-            applications = await self._client.get_applications()
             credentials: list[Credential] = []
 
-            for app in applications:
-                app_id = app.get("appId", "")
-                app_name = app.get("displayName", "Unknown")
+            # Fetch app registration credentials
+            app_credentials = await self._fetch_application_credentials()
+            credentials.extend(app_credentials)
 
-                # Process password credentials (secrets)
-                for cred in app.get("passwordCredentials", []):
-                    credential = self._map_credential(
-                        cred,
-                        CredentialType.PASSWORD,
-                        app_id,
-                        app_name,
-                    )
-                    if credential:
-                        credentials.append(credential)
+            # Fetch service principal credentials if enabled
+            if self._monitor_service_principals:
+                sp_credentials = await self._fetch_service_principal_credentials()
+                credentials.extend(sp_credentials)
 
-                # Process key credentials (certificates)
-                for cred in app.get("keyCredentials", []):
-                    credential = self._map_credential(
-                        cred,
-                        CredentialType.CERTIFICATE,
-                        app_id,
-                        app_name,
-                    )
-                    if credential:
-                        credentials.append(credential)
-
-            logger.info("Retrieved %d credentials from %d applications", len(credentials), len(applications))
             return credentials
 
         except Exception as e:
@@ -75,12 +63,98 @@ class EntraIdCredentialRepository:
             logger.exception(msg)
             raise CredentialRepositoryError(msg) from e
 
+    async def _fetch_application_credentials(self) -> list[Credential]:
+        """Fetch credentials from app registrations."""
+        applications = await self._client.get_applications()
+        credentials: list[Credential] = []
+
+        for app in applications:
+            app_id = app.get("appId", "")
+            app_name = app.get("displayName", "Unknown")
+
+            # Process password credentials (secrets)
+            for cred in app.get("passwordCredentials", []):
+                credential = self._map_credential(
+                    cred,
+                    CredentialType.PASSWORD,
+                    app_id,
+                    app_name,
+                    CredentialSource.APP_REGISTRATION,
+                )
+                if credential:
+                    credentials.append(credential)
+
+            # Process key credentials (certificates)
+            for cred in app.get("keyCredentials", []):
+                credential = self._map_credential(
+                    cred,
+                    CredentialType.CERTIFICATE,
+                    app_id,
+                    app_name,
+                    CredentialSource.APP_REGISTRATION,
+                )
+                if credential:
+                    credentials.append(credential)
+
+        logger.info(
+            "Retrieved %d credentials from %d app registrations",
+            len(credentials),
+            len(applications),
+        )
+        return credentials
+
+    async def _fetch_service_principal_credentials(self) -> list[Credential]:
+        """Fetch credentials from service principals."""
+        service_principals = await self._client.get_service_principals()
+        credentials: list[Credential] = []
+
+        for sp in service_principals:
+            sp_object_id = sp.get("id", "")
+            app_id = sp.get("appId", "")
+            sp_name = sp.get("displayName", "Unknown")
+
+            # Process password credentials (secrets)
+            for cred in sp.get("passwordCredentials", []):
+                credential = self._map_credential(
+                    cred,
+                    CredentialType.PASSWORD,
+                    app_id,
+                    sp_name,
+                    CredentialSource.SERVICE_PRINCIPAL,
+                    object_id=sp_object_id,
+                )
+                if credential:
+                    credentials.append(credential)
+
+            # Process key credentials (certificates)
+            for cred in sp.get("keyCredentials", []):
+                credential = self._map_credential(
+                    cred,
+                    CredentialType.CERTIFICATE,
+                    app_id,
+                    sp_name,
+                    CredentialSource.SERVICE_PRINCIPAL,
+                    object_id=sp_object_id,
+                )
+                if credential:
+                    credentials.append(credential)
+
+        logger.info(
+            "Retrieved %d credentials from %d service principals",
+            len(credentials),
+            len(service_principals),
+        )
+        return credentials
+
     def _map_credential(
         self,
         raw: dict,
         credential_type: CredentialType,
         app_id: str,
         app_name: str,
+        source: CredentialSource,
+        *,
+        object_id: str | None = None,
     ) -> Credential | None:
         """
         Map raw Graph API credential data to domain entity.
@@ -89,7 +163,9 @@ class EntraIdCredentialRepository:
             raw: Raw credential dictionary from Graph API.
             credential_type: Type of credential.
             app_id: Application ID.
-            app_name: Application display name.
+            app_name: Application or service principal display name.
+            source: Source of the credential (app registration or service principal).
+            object_id: Service principal object ID (different from app ID).
 
         Returns:
             Credential entity or None if mapping fails.
@@ -97,8 +173,9 @@ class EntraIdCredentialRepository:
         expiry_str = raw.get("endDateTime")
         if not expiry_str:
             logger.warning(
-                "Credential %s in app %s has no expiry date",
+                "Credential %s in %s %s has no expiry date",
                 raw.get("keyId", "unknown"),
+                source.display_name,
                 app_name,
             )
             return None
@@ -114,6 +191,8 @@ class EntraIdCredentialRepository:
             expiry_date=expiry_date,
             application_id=app_id,
             application_name=app_name,
+            source=source,
+            object_id=object_id,
         )
 
     @staticmethod

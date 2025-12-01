@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 
 from croniter import croniter
 
-from .application.ports import NotificationSender
 from .application.use_cases import CheckExpiringCredentials
 from .infrastructure.adapters import (
     EmailNotificationSender,
@@ -29,6 +28,7 @@ from .infrastructure.adapters import (
 from .infrastructure.config import Settings, load_settings
 
 if TYPE_CHECKING:
+    from .application.ports import NotificationSender
     from .application.use_cases.check_expiring_credentials import CheckResult
 
 # Configure logging
@@ -56,7 +56,10 @@ class ApplicationContainer:
 
     def create_credential_repository(self) -> EntraIdCredentialRepository:
         """Create the credential repository adapter."""
-        return EntraIdCredentialRepository(self._settings.graph_config)
+        return EntraIdCredentialRepository(
+            self._settings.graph_config,
+            monitor_service_principals=self._settings.monitor_service_principals,
+        )
 
     def create_notification_senders(self) -> list[NotificationSender]:
         """Create all configured notification sender adapters."""

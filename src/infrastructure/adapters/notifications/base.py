@@ -1,9 +1,13 @@
 """Base notification sender with common functionality."""
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from ....domain.entities import Credential, ExpirationReport
+if TYPE_CHECKING:
+    from ....domain.entities import Credential, ExpirationReport
 
 
 class BaseNotificationSender(ABC):
@@ -36,7 +40,9 @@ class BaseNotificationSender(ABC):
         for credential in credentials[:max_items]:
             status = "EXPIRED" if credential.is_expired else f"{credential.days_until_expiry}d"
             name = credential.display_name or str(credential.id)[:8]
-            line = f"• {credential.application_name} - {credential.credential_type} '{name}': {status}"
+            app_name = credential.application_name
+            cred_type = credential.credential_type
+            line = f"• {app_name} - {cred_type} '{name}': {status}"
             if include_url:
                 line += f"\n  Manage: {credential.azure_portal_url}"
             lines.append(line)

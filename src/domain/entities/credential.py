@@ -5,12 +5,17 @@ from datetime import UTC, datetime
 from typing import Self
 from uuid import UUID
 
-from ..value_objects import CredentialType, ExpirationStatus, ExpirationThresholds
+from ..value_objects import (
+    CredentialSource,
+    CredentialType,
+    ExpirationStatus,
+    ExpirationThresholds,
+)
 
 
 @dataclass(slots=True)
 class Credential:
-    """A credential (secret or certificate) belonging to an application."""
+    """A credential (secret or certificate) belonging to an application or service principal."""
 
     id: UUID
     credential_type: CredentialType
@@ -18,6 +23,8 @@ class Credential:
     expiry_date: datetime
     application_id: UUID
     application_name: str
+    source: CredentialSource = CredentialSource.APP_REGISTRATION
+    object_id: UUID | None = None  # Service principal object ID (different from app ID)
 
     _days_until_expiry: int = field(init=False, repr=False)
     _is_expired: bool = field(init=False, repr=False)
@@ -46,7 +53,13 @@ class Credential:
 
     @property
     def azure_portal_url(self) -> str:
-        """URL to manage this app's credentials in Azure Portal."""
+        """URL to manage this credential in Azure Portal."""
+        if self.source == CredentialSource.SERVICE_PRINCIPAL and self.object_id:
+            return (
+                f"https://portal.azure.com/#view/Microsoft_AAD_IAM"
+                f"/ManagedAppMenuBlade/~/Credentials/objectId/{self.object_id}"
+                f"/appId/{self.application_id}"
+            )
         return (
             f"https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps"
             f"/ApplicationMenuBlade/~/Credentials/appId/{self.application_id}"
@@ -76,6 +89,8 @@ class Credential:
         expiry_date: datetime,
         application_id: str,
         application_name: str,
+        source: CredentialSource = CredentialSource.APP_REGISTRATION,
+        object_id: str | None = None,
     ) -> Self:
         """Factory method to create a Credential from raw data."""
         return cls(
@@ -85,4 +100,6 @@ class Credential:
             expiry_date=expiry_date,
             application_id=UUID(application_id),
             application_name=application_name,
+            source=source,
+            object_id=UUID(object_id) if object_id else None,
         )

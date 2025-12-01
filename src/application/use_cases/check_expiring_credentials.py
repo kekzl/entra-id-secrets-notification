@@ -80,7 +80,10 @@ class CheckExpiringCredentials:
         if not report.requires_notification:
             logger.info("No credentials require notification")
         elif self._dry_run:
-            logger.info("DRY RUN: Would send notifications for %d credentials", len(report.credentials))
+            logger.info(
+                "DRY RUN: Would send notifications for %d credentials",
+                len(report.credentials),
+            )
             self._log_dry_run_report(report)
         elif not self._senders:
             logger.warning("No notification senders configured")

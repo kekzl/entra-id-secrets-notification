@@ -1,11 +1,17 @@
 """Slack notification sender."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 
-from ....domain.entities import ExpirationReport
+from ....domain.value_objects import CredentialSource, ExpirationStatus
 from .base import BaseNotificationSender
+
+if TYPE_CHECKING:
+    from ....domain.entities import Credential, ExpirationReport
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,17 +92,39 @@ class SlackNotificationSender(BaseNotificationSender):
                     {"type": "mrkdwn", "text": f"*🟢 Healthy:*\n{report.healthy_count}"},
                 ],
             },
-            {"type": "divider"},
         ]
 
-        # Build details section
-        details = self._build_details_text(report)
-        if details:
+        # Add App Registration section
+        app_creds = report.get_credentials_by_source(CredentialSource.APP_REGISTRATION)
+        if app_creds:
+            blocks.append({"type": "divider"})
             blocks.append({
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": details},
+                "text": {"type": "mrkdwn", "text": "*📦 APP REGISTRATIONS*"},
             })
+            details = self._build_source_details(report, app_creds)
+            if details:
+                blocks.append({
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": details},
+                })
 
+        # Add Service Principal section
+        sp_creds = report.get_credentials_by_source(CredentialSource.SERVICE_PRINCIPAL)
+        if sp_creds:
+            blocks.append({"type": "divider"})
+            blocks.append({
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "*🔧 SERVICE PRINCIPALS*"},
+            })
+            details = self._build_source_details(report, sp_creds)
+            if details:
+                blocks.append({
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": details},
+                })
+
+        blocks.append({"type": "divider"})
         blocks.append({
             "type": "context",
             "elements": [{"type": "mrkdwn", "text": "Entra ID Secrets Notification System"}],
@@ -107,31 +135,35 @@ class SlackNotificationSender(BaseNotificationSender):
             "attachments": [{"color": color, "blocks": []}],
         }
 
-    def _build_details_text(self, report: ExpirationReport) -> str:
-        """Build details text for Slack message."""
+    def _build_source_details(self, report: ExpirationReport, credentials: list[Credential]) -> str:
+        """Build details text for a specific credential source."""
         parts: list[str] = []
 
-        if report.expired:
+        expired = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.EXPIRED]
+        critical = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.CRITICAL]
+        warning = [c for c in credentials if c.get_status(report.thresholds) == ExpirationStatus.WARNING]
+
+        if expired:
             parts.append("*🔴 Expired:*")
-            for cred in report.expired[:5]:
+            for cred in expired[:3]:
                 name = cred.display_name or str(cred.id)[:8]
                 parts.append(
                     f"• `{cred.application_name}` - {cred.credential_type} _{name}_ "
                     f"<{cred.azure_portal_url}|Manage>"
                 )
 
-        if report.critical:
+        if critical:
             parts.append("\n*🟠 Critical (≤7 days):*")
-            for cred in report.critical[:5]:
+            for cred in critical[:3]:
                 name = cred.display_name or str(cred.id)[:8]
                 parts.append(
                     f"• `{cred.application_name}` - _{name}_ ({cred.days_until_expiry}d) "
                     f"<{cred.azure_portal_url}|Manage>"
                 )
 
-        if report.warning:
+        if warning:
             parts.append("\n*🟡 Warning (≤30 days):*")
-            for cred in report.warning[:5]:
+            for cred in warning[:3]:
                 name = cred.display_name or str(cred.id)[:8]
                 parts.append(
                     f"• `{cred.application_name}` - _{name}_ ({cred.days_until_expiry}d) "

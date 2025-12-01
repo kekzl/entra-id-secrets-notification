@@ -1,12 +1,18 @@
 """Generic webhook notification sender."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import httpx
 
-from ....domain.entities import ExpirationReport
+from ....domain.value_objects import CredentialSource
 from .base import BaseNotificationSender
+
+if TYPE_CHECKING:
+    from ....domain.entities import Credential, ExpirationReport
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,21 +61,8 @@ class WebhookNotificationSender(BaseNotificationSender):
 
     def _build_payload(self, report: ExpirationReport) -> dict:
         """Build the JSON payload for the webhook."""
-        credentials_data = [
-            {
-                "application_id": str(cred.application_id),
-                "application_name": cred.application_name,
-                "credential_id": str(cred.id),
-                "credential_type": str(cred.credential_type),
-                "display_name": cred.display_name,
-                "expiry_date": cred.expiry_date.isoformat(),
-                "days_until_expiry": cred.days_until_expiry,
-                "is_expired": cred.is_expired,
-                "status": cred.get_status(report.thresholds).value,
-                "azure_portal_url": cred.azure_portal_url,
-            }
-            for cred in report.get_credentials_sorted_by_urgency()
-        ]
+        app_creds = report.get_credentials_by_source(CredentialSource.APP_REGISTRATION)
+        sp_creds = report.get_credentials_by_source(CredentialSource.SERVICE_PRINCIPAL)
 
         return {
             "event_type": "entra_id_secrets_alert",
@@ -84,5 +77,35 @@ class WebhookNotificationSender(BaseNotificationSender):
                 "warning_count": report.warning_count,
                 "healthy_count": report.healthy_count,
             },
-            "credentials": credentials_data,
+            "app_registrations": {
+                "summary": report.get_source_summary(CredentialSource.APP_REGISTRATION),
+                "counts": report.get_source_counts(CredentialSource.APP_REGISTRATION),
+                "credentials": self._format_credentials(report, app_creds),
+            },
+            "service_principals": {
+                "summary": report.get_source_summary(CredentialSource.SERVICE_PRINCIPAL),
+                "counts": report.get_source_counts(CredentialSource.SERVICE_PRINCIPAL),
+                "credentials": self._format_credentials(report, sp_creds),
+            },
+            # Keep legacy field for backward compatibility
+            "credentials": self._format_credentials(report, report.get_credentials_sorted_by_urgency()),
         }
+
+    def _format_credentials(self, report: ExpirationReport, credentials: list[Credential]) -> list[dict]:
+        """Format credentials list for JSON payload."""
+        return [
+            {
+                "application_id": str(cred.application_id),
+                "application_name": cred.application_name,
+                "credential_id": str(cred.id),
+                "credential_type": str(cred.credential_type),
+                "display_name": cred.display_name,
+                "expiry_date": cred.expiry_date.isoformat(),
+                "days_until_expiry": cred.days_until_expiry,
+                "is_expired": cred.is_expired,
+                "status": cred.get_status(report.thresholds).value,
+                "source": str(cred.source),
+                "azure_portal_url": cred.azure_portal_url,
+            }
+            for cred in credentials
+        ]

@@ -3,7 +3,12 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from ..value_objects import ExpirationStatus, ExpirationThresholds, NotificationLevel
+from ..value_objects import (
+    CredentialSource,
+    ExpirationStatus,
+    ExpirationThresholds,
+    NotificationLevel,
+)
 from .credential import Credential
 
 
@@ -115,3 +120,65 @@ class ExpirationReport:
     def get_credentials_sorted_by_urgency(self) -> list[Credential]:
         """Get all credentials sorted by urgency (most urgent first)."""
         return sorted(self.credentials, key=lambda c: c.days_until_expiry)
+
+    def get_credentials_by_source(self, source: CredentialSource) -> list[Credential]:
+        """Get credentials filtered by source."""
+        return [c for c in self.credentials if c.source == source]
+
+    def get_credentials_by_source_and_status(
+        self, source: CredentialSource, status: ExpirationStatus
+    ) -> list[Credential]:
+        """Get credentials filtered by source and status."""
+        return [
+            c for c in self.credentials
+            if c.source == source and c.get_status(self.thresholds) == status
+        ]
+
+    def has_credentials_for_source(self, source: CredentialSource) -> bool:
+        """Check if there are credentials requiring attention for a source."""
+        return any(
+            c.source == source and c.get_status(self.thresholds).requires_attention
+            for c in self.credentials
+        )
+
+    def get_source_summary(self, source: CredentialSource) -> str:
+        """Generate a summary for a specific source."""
+        creds = self.get_credentials_by_source(source)
+        if not creds:
+            return f"No {source.display_name} credentials"
+
+        thresholds = self.thresholds
+        expired = sum(1 for c in creds if c.get_status(thresholds) == ExpirationStatus.EXPIRED)
+        critical = sum(1 for c in creds if c.get_status(thresholds) == ExpirationStatus.CRITICAL)
+        warning = sum(1 for c in creds if c.get_status(thresholds) == ExpirationStatus.WARNING)
+
+        parts: list[str] = []
+        if expired:
+            parts.append(f"{expired} expired")
+        if critical:
+            parts.append(f"{critical} critical")
+        if warning:
+            parts.append(f"{warning} warning")
+
+        total_attention = expired + critical + warning
+        if not total_attention:
+            return f"All {source.display_name} credentials are healthy"
+
+        return f"{total_attention} credentials requiring attention: {', '.join(parts)}"
+
+    def get_source_counts(self, source: CredentialSource) -> dict[str, int]:
+        """Get credential counts for a specific source."""
+        creds = self.get_credentials_by_source(source)
+        thresholds = self.thresholds
+        expired = sum(1 for c in creds if c.get_status(thresholds) == ExpirationStatus.EXPIRED)
+        critical = sum(1 for c in creds if c.get_status(thresholds) == ExpirationStatus.CRITICAL)
+        warning = sum(1 for c in creds if c.get_status(thresholds) == ExpirationStatus.WARNING)
+        healthy = sum(1 for c in creds if c.get_status(thresholds) == ExpirationStatus.HEALTHY)
+
+        return {
+            "total": len(creds),
+            "expired": expired,
+            "critical": critical,
+            "warning": warning,
+            "healthy": healthy,
+        }

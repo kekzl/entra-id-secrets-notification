@@ -14,5 +14,8 @@ class ExpirationThresholds:
     def __post_init__(self) -> None:
         """Validate thresholds are in correct order."""
         if not (0 < self.critical < self.warning < self.info):
-            msg = f"Thresholds must be: 0 < critical({self.critical}) < warning({self.warning}) < info({self.info})"
+            msg = (
+                f"Thresholds must be: 0 < critical({self.critical}) "
+                f"< warning({self.warning}) < info({self.info})"
+            )
             raise ValueError(msg)
