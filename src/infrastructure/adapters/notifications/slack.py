@@ -115,18 +115,27 @@ class SlackNotificationSender(BaseNotificationSender):
             parts.append("*🔴 Expired:*")
             for cred in report.expired[:5]:
                 name = cred.display_name or str(cred.id)[:8]
-                parts.append(f"• `{cred.application_name}` - {cred.credential_type} _{name}_")
+                parts.append(
+                    f"• `{cred.application_name}` - {cred.credential_type} _{name}_ "
+                    f"<{cred.azure_portal_url}|Manage>"
+                )
 
         if report.critical:
             parts.append("\n*🟠 Critical (≤7 days):*")
             for cred in report.critical[:5]:
                 name = cred.display_name or str(cred.id)[:8]
-                parts.append(f"• `{cred.application_name}` - _{name}_ ({cred.days_until_expiry}d)")
+                parts.append(
+                    f"• `{cred.application_name}` - _{name}_ ({cred.days_until_expiry}d) "
+                    f"<{cred.azure_portal_url}|Manage>"
+                )
 
         if report.warning:
             parts.append("\n*🟡 Warning (≤30 days):*")
             for cred in report.warning[:5]:
                 name = cred.display_name or str(cred.id)[:8]
-                parts.append(f"• `{cred.application_name}` - _{name}_ ({cred.days_until_expiry}d)")
+                parts.append(
+                    f"• `{cred.application_name}` - _{name}_ ({cred.days_until_expiry}d) "
+                    f"<{cred.azure_portal_url}|Manage>"
+                )
 
         return "\n".join(parts)

@@ -28,6 +28,7 @@ class BaseNotificationSender(ABC):
         credentials: list[Credential],
         *,
         max_items: int = 10,
+        include_url: bool = True,
     ) -> str:
         """Format a list of credentials for display."""
         lines: list[str] = []
@@ -35,9 +36,10 @@ class BaseNotificationSender(ABC):
         for credential in credentials[:max_items]:
             status = "EXPIRED" if credential.is_expired else f"{credential.days_until_expiry}d"
             name = credential.display_name or str(credential.id)[:8]
-            lines.append(
-                f"• {credential.application_name} - {credential.credential_type} '{name}': {status}"
-            )
+            line = f"• {credential.application_name} - {credential.credential_type} '{name}': {status}"
+            if include_url:
+                line += f"\n  Manage: {credential.azure_portal_url}"
+            lines.append(line)
 
         if len(credentials) > max_items:
             lines.append(f"... and {len(credentials) - max_items} more")

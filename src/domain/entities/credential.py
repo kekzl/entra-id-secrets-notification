@@ -44,6 +44,14 @@ class Credential:
         """Check if credential has expired."""
         return self._is_expired
 
+    @property
+    def azure_portal_url(self) -> str:
+        """URL to manage this app's credentials in Azure Portal."""
+        return (
+            f"https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps"
+            f"/ApplicationMenuBlade/~/Credentials/appId/{self.application_id}"
+        )
+
     def get_status(self, thresholds: ExpirationThresholds) -> ExpirationStatus:
         """Determine expiration status based on thresholds."""
         if self._is_expired:

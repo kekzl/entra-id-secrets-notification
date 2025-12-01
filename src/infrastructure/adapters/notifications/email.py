@@ -125,8 +125,10 @@ class EmailNotificationSender(BaseNotificationSender):
             status = cred.get_status(report.thresholds).value.upper()
             name = cred.display_name or str(cred.id)[:8]
             expiry = cred.expiry_date.strftime("%Y-%m-%d")
+            portal_url = cred.azure_portal_url
             rows += f"<tr><td>{cred.application_name}</td><td>{cred.credential_type}</td>"
-            rows += f"<td>{name}</td><td>{expiry}</td><td>{status}</td></tr>\n"
+            rows += f"<td>{name}</td><td>{expiry}</td><td>{status}</td>"
+            rows += f'<td><a href="{portal_url}" target="_blank">Manage</a></td></tr>\n'
 
         return f"""<!DOCTYPE html>
 <html>
@@ -139,6 +141,8 @@ table {{ border-collapse: collapse; width: 100%; margin: 15px 0; }}
 th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
 th {{ background-color: #4CAF50; color: white; }}
 tr:nth-child(even) {{ background-color: #f2f2f2; }}
+a {{ color: #0066cc; text-decoration: none; }}
+a:hover {{ text-decoration: underline; }}
 .footer {{ margin-top: 20px; font-size: 12px; color: #6c757d; }}
 </style>
 </head>
@@ -150,7 +154,7 @@ tr:nth-child(even) {{ background-color: #f2f2f2; }}
 <p>Expired: {report.expired_count} | Critical: {report.critical_count} | Warning: {report.warning_count}</p>
 </div>
 <table>
-<tr><th>Application</th><th>Type</th><th>Name</th><th>Expiry</th><th>Status</th></tr>
+<tr><th>Application</th><th>Type</th><th>Name</th><th>Expiry</th><th>Status</th><th>Action</th></tr>
 {rows}
 </table>
 <div class="footer"><p>Entra ID Secrets Notification System</p></div>

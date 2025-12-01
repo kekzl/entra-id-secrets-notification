@@ -66,6 +66,7 @@ class WebhookNotificationSender(BaseNotificationSender):
                 "days_until_expiry": cred.days_until_expiry,
                 "is_expired": cred.is_expired,
                 "status": cred.get_status(report.thresholds).value,
+                "azure_portal_url": cred.azure_portal_url,
             }
             for cred in report.get_credentials_sorted_by_urgency()
         ]

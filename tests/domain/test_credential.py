@@ -100,3 +100,20 @@ class TestCredential:
         # Should not raise and should calculate days correctly
         assert credential.days_until_expiry >= 9
         assert credential.days_until_expiry <= 11
+
+    def test_azure_portal_url(self) -> None:
+        """Credential should provide Azure portal URL for managing the app."""
+        app_id = uuid4()
+        credential = Credential(
+            id=uuid4(),
+            credential_type=CredentialType.PASSWORD,
+            display_name="Test",
+            expiry_date=datetime.now(UTC) + timedelta(days=30),
+            application_id=app_id,
+            application_name="Test App",
+        )
+        expected_url = (
+            f"https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps"
+            f"/ApplicationMenuBlade/~/Credentials/appId/{app_id}"
+        )
+        assert credential.azure_portal_url == expected_url

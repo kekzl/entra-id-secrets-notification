@@ -77,7 +77,8 @@ class TeamsNotificationSender(BaseNotificationSender):
                 name = cred.display_name or str(cred.id)[:8]
                 details_items.append({
                     "type": "TextBlock",
-                    "text": f"• {cred.application_name} - {cred.credential_type} '{name}'",
+                    "text": f"• {cred.application_name} - {cred.credential_type} '{name}' "
+                            f"[Manage]({cred.azure_portal_url})",
                     "wrap": True,
                     "spacing": "None",
                 })
@@ -95,7 +96,8 @@ class TeamsNotificationSender(BaseNotificationSender):
                 name = cred.display_name or str(cred.id)[:8]
                 details_items.append({
                     "type": "TextBlock",
-                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d)",
+                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
+                            f"[Manage]({cred.azure_portal_url})",
                     "wrap": True,
                     "spacing": "None",
                 })
@@ -113,7 +115,8 @@ class TeamsNotificationSender(BaseNotificationSender):
                 name = cred.display_name or str(cred.id)[:8]
                 details_items.append({
                     "type": "TextBlock",
-                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d)",
+                    "text": f"• {cred.application_name} - '{name}' ({cred.days_until_expiry}d) "
+                            f"[Manage]({cred.azure_portal_url})",
                     "wrap": True,
                     "spacing": "None",
                 })
