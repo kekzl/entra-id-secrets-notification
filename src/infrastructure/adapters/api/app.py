@@ -57,7 +57,7 @@ class ApiState:
     def __init__(
         self,
         check_func: Callable[[], Coroutine[None, None, CheckResult]],
-        version: str = "1.0.0",
+        version: str = "1.1.0",
     ) -> None:
         """Initialize API state."""
         self.check_func = check_func
@@ -68,7 +68,7 @@ class ApiState:
 
 def create_app(
     check_func: Callable[[], Coroutine[None, None, CheckResult]],
-    version: str = "1.0.0",
+    version: str = "1.1.0",
 ) -> FastAPI:
     """
     Create FastAPI application.
