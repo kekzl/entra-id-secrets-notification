@@ -40,7 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Application version
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 class ApplicationContainer:
