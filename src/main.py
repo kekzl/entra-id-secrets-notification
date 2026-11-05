@@ -59,6 +59,7 @@ class ApplicationContainer:
         return EntraIdCredentialRepository(
             self._settings.graph_config,
             monitor_service_principals=self._settings.monitor_service_principals,
+            excluded_application_ids=self._settings.excluded_application_ids,
         )
 
     def create_notification_senders(self) -> list[NotificationSender]:
