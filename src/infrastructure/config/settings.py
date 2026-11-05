@@ -28,6 +28,12 @@ def _env_str(key: str, default: str = "") -> str:
     return os.environ.get(key, default)
 
 
+def _env_list(key: str) -> list[str]:
+    """Get a list of values from a comma-separated environment variable."""
+    raw = os.environ.get(key, "")
+    return [item.strip().lower() for item in raw.split(",") if item.strip()]
+
+
 @dataclass
 class Settings:
     """Application settings container."""
@@ -49,6 +55,9 @@ class Settings:
     # Monitoring scope
     monitor_service_principals: bool = field(
         default_factory=lambda: _env_bool("MONITOR_SERVICE_PRINCIPALS", default=True)
+    )
+    excluded_application_ids: list[str] = field(
+        default_factory=lambda: _env_list("EXCLUDED_APPLICATION_IDS")
     )
 
     # Run configuration
