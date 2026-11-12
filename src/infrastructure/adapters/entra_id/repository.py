@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Collection
 from datetime import UTC, datetime
-from typing import Any
-from uuid import UUID
+from typing import TYPE_CHECKING, Any
 
 from ....application.exceptions import CredentialRepositoryError
 from ....domain.entities import Credential
 from ....domain.value_objects import CredentialSource, CredentialType
 from .graph_client import GraphClient, GraphClientConfig
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
+    from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +78,7 @@ class EntraIdCredentialRepository:
                     len(credentials) - len(deduplicated),
                 )
 
-            filtered = filter_excluded_credentials(
-                deduplicated, self._excluded_application_ids
-            )
+            filtered = filter_excluded_credentials(deduplicated, self._excluded_application_ids)
             if len(filtered) != len(deduplicated):
                 logger.info(
                     "Excluded %d credentials via EXCLUDED_APPLICATION_IDS",
@@ -283,9 +283,7 @@ def filter_excluded_credentials(
     itself: the tenant cannot act on them, so alerting on them is noise.
     """
     excluded = {
-        str(entry).strip().lower()
-        for entry in excluded_application_ids
-        if str(entry).strip()
+        str(entry).strip().lower() for entry in excluded_application_ids if str(entry).strip()
     }
     if not excluded:
         return list(credentials)
@@ -293,9 +291,6 @@ def filter_excluded_credentials(
     def _is_excluded(credential: Credential) -> bool:
         if str(credential.application_id).lower() in excluded:
             return True
-        return (
-            credential.object_id is not None
-            and str(credential.object_id).lower() in excluded
-        )
+        return credential.object_id is not None and str(credential.object_id).lower() in excluded
 
     return [credential for credential in credentials if not _is_excluded(credential)]

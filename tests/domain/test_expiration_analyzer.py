@@ -47,8 +47,12 @@ class TestSupersededGenerations:
         self, default_thresholds: ExpirationThresholds
     ) -> None:
         """The MS-Organization-P2P-Access [2025]/[2026] rollover case."""
-        old = make_credential(display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10)
-        new = make_credential(display_name="CN=MS-Organization-P2P-Access [2026]", days_from_now=300)
+        old = make_credential(
+            display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10
+        )
+        new = make_credential(
+            display_name="CN=MS-Organization-P2P-Access [2026]", days_from_now=300
+        )
 
         analyzer = ExpirationAnalyzer(default_thresholds)
         report = analyzer.analyze([old, new])
@@ -61,7 +65,9 @@ class TestSupersededGenerations:
         self, default_thresholds: ExpirationThresholds
     ) -> None:
         """An expired credential with no replacement still alerts."""
-        old = make_credential(display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10)
+        old = make_credential(
+            display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10
+        )
 
         report = ExpirationAnalyzer(default_thresholds).analyze([old])
 
@@ -72,8 +78,12 @@ class TestSupersededGenerations:
         self, default_thresholds: ExpirationThresholds
     ) -> None:
         """If the newer generation has also expired, both are reported."""
-        older = make_credential(display_name="CN=MS-Organization-P2P-Access [2024]", days_from_now=-400)
-        old = make_credential(display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10)
+        older = make_credential(
+            display_name="CN=MS-Organization-P2P-Access [2024]", days_from_now=-400
+        )
+        old = make_credential(
+            display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10
+        )
 
         report = ExpirationAnalyzer(default_thresholds).analyze([older, old])
 
@@ -83,7 +93,9 @@ class TestSupersededGenerations:
         self, default_thresholds: ExpirationThresholds
     ) -> None:
         """A healthy credential on a different service principal is unrelated."""
-        old = make_credential(display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10)
+        old = make_credential(
+            display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10
+        )
         new_elsewhere = make_credential(
             display_name="CN=MS-Organization-P2P-Access [2026]",
             days_from_now=300,
@@ -121,7 +133,9 @@ class TestSupersededGenerations:
         self, default_thresholds: ExpirationThresholds
     ) -> None:
         """A different name or type on the same owner is not a successor."""
-        old = make_credential(display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10)
+        old = make_credential(
+            display_name="CN=MS-Organization-P2P-Access [2025]", days_from_now=-10
+        )
         unrelated = make_credential(
             display_name="some-other-secret",
             days_from_now=200,
