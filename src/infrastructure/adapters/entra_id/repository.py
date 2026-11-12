@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ....application.exceptions import CredentialRepositoryError
 from ....domain.entities import Credential
 from ....domain.value_objects import CredentialSource, CredentialType
 from .graph_client import GraphClient, GraphClientConfig
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
+    from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +30,7 @@ class EntraIdCredentialRepository:
         config: GraphClientConfig,
         *,
         monitor_service_principals: bool = True,
+        excluded_application_ids: Collection[str] | None = None,
     ) -> None:
         """
         Initialize the repository.
@@ -33,9 +38,16 @@ class EntraIdCredentialRepository:
         Args:
             config: Configuration for the Graph API client.
             monitor_service_principals: Whether to also monitor service principal credentials.
+            excluded_application_ids: Application (client) IDs, or service
+                principal object IDs, whose credentials are never monitored.
         """
         self._client = GraphClient(config)
         self._monitor_service_principals = monitor_service_principals
+        self._excluded_application_ids = frozenset(
+            entry.strip().lower()
+            for entry in (excluded_application_ids or [])
+            if entry and entry.strip()
+        )
 
     async def get_all_credentials(self) -> list[Credential]:
         """
@@ -59,7 +71,20 @@ class EntraIdCredentialRepository:
                 sp_credentials = await self._fetch_service_principal_credentials()
                 credentials.extend(sp_credentials)
 
-            return credentials
+            deduplicated = deduplicate_credentials(credentials)
+            if len(deduplicated) != len(credentials):
+                logger.info(
+                    "Deduplicated %d mirrored credential entries",
+                    len(credentials) - len(deduplicated),
+                )
+
+            filtered = filter_excluded_credentials(deduplicated, self._excluded_application_ids)
+            if len(filtered) != len(deduplicated):
+                logger.info(
+                    "Excluded %d credentials via EXCLUDED_APPLICATION_IDS",
+                    len(deduplicated) - len(filtered),
+                )
+            return filtered
 
         except Exception as e:
             msg = f"Failed to retrieve credentials from Entra ID: {e}"
@@ -210,3 +235,62 @@ class EntraIdCredentialRepository:
         except ValueError:
             logger.warning("Failed to parse datetime: %s", dt_string)
             return None
+
+
+def deduplicate_credentials(credentials: list[Credential]) -> list[Credential]:
+    """
+    Collapse entries that describe the same underlying credential.
+
+    Microsoft Graph can return the same certificate in both the
+    passwordCredentials and the keyCredentials collection of an application
+    or service principal (identical keyId). Managed certificates such as
+    "CN=MS-Organization-P2P-Access" appear in both, so without deduplication
+    a single certificate is counted and alerted on twice. Entries are keyed
+    by (source, owner, keyId); when both representations exist, the
+    certificate one is kept. Credentials that merely share a name but have
+    different keyIds are left untouched.
+    """
+    by_key: dict[tuple[CredentialSource, UUID, UUID], Credential] = {}
+    order: list[tuple[CredentialSource, UUID, UUID]] = []
+
+    for credential in credentials:
+        owner = credential.object_id or credential.application_id
+        key = (credential.source, owner, credential.id)
+        existing = by_key.get(key)
+        if existing is None:
+            by_key[key] = credential
+            order.append(key)
+        elif (
+            existing.credential_type is not CredentialType.CERTIFICATE
+            and credential.credential_type is CredentialType.CERTIFICATE
+        ):
+            by_key[key] = credential
+
+    return [by_key[key] for key in order]
+
+
+def filter_excluded_credentials(
+    credentials: list[Credential], excluded_application_ids: Collection[str]
+) -> list[Credential]:
+    """
+    Remove credentials that belong to excluded applications.
+
+    An entry is excluded when its application (client) ID is in the
+    exclusion set; service principal credentials can also be excluded by
+    the principal's object ID. Matching is case-insensitive. This is the
+    escape hatch for platform-managed system applications (for example
+    Microsoft's P2P Server) whose credentials are rotated by the platform
+    itself: the tenant cannot act on them, so alerting on them is noise.
+    """
+    excluded = {
+        str(entry).strip().lower() for entry in excluded_application_ids if str(entry).strip()
+    }
+    if not excluded:
+        return list(credentials)
+
+    def _is_excluded(credential: Credential) -> bool:
+        if str(credential.application_id).lower() in excluded:
+            return True
+        return credential.object_id is not None and str(credential.object_id).lower() in excluded
+
+    return [credential for credential in credentials if not _is_excluded(credential)]
